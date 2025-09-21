@@ -11,10 +11,10 @@
 
 ### 📊 진행률 추적
 - **Phase 1**: 100% (23/23 완료) ✅
-- **Phase 2**: 0% (0/28 완료)
+- **Phase 2**: 18% (5/28 완료)
 - **Phase 3**: 0% (0/25 완료)
 - **Phase 4**: 0% (0/18 완료)
-- **전체**: 24% (23/94 완료)
+- **전체**: 30% (28/94 완료)
 
 ---
 
@@ -86,8 +86,8 @@
 
 ### 1.5 Phase 1 검증 및 테스트
 
-- [ ] **1.5.1** 단위 테스트 작성
-- [ ] **1.5.2** 통합 테스트 작성
+- [x] **1.5.1** 단위 테스트 작성
+- [x] **1.5.2** 통합 테스트 작성
 - [x] **1.5.3** 기본 CLI 명령어 동작 검증
 - [x] **1.5.4** 데이터베이스 연결 및 CRUD 검증
 - [x] **1.5.5** 코드 리뷰 및 리팩토링
@@ -107,19 +107,19 @@
 
 ### 2.1 HR 모듈 - 직원 관리
 
-- [ ] **2.1.1** 부서 관리 명령어 구현
-  - [ ] `clierp hr dept add`
-  - [ ] `clierp hr dept list`
-  - [ ] `clierp hr dept update`
-  - [ ] `clierp hr dept delete`
-- [ ] **2.1.2** 직원 관리 명령어 구현
-  - [ ] `clierp hr employee add`
-  - [ ] `clierp hr employee list`
-  - [ ] `clierp hr employee show`
-  - [ ] `clierp hr employee update`
-  - [ ] `clierp hr employee delete`
-- [ ] **2.1.3** 직원 검색 및 필터링 기능
-- [ ] **2.1.4** 직원 정보 내보내기 (CSV, JSON)
+- [x] **2.1.1** 부서 관리 명령어 구현
+  - [x] `clierp hr dept add`
+  - [x] `clierp hr dept list`
+  - [x] `clierp hr dept update`
+  - [x] `clierp hr dept delete`
+- [x] **2.1.2** 직원 관리 명령어 구현
+  - [x] `clierp hr employee add`
+  - [x] `clierp hr employee list`
+  - [x] `clierp hr employee show`
+  - [x] `clierp hr employee update`
+  - [x] `clierp hr employee delete`
+- [x] **2.1.3** 직원 검색 및 필터링 기능
+- [x] **2.1.4** 직원 정보 내보내기 (CSV, JSON)
 - [ ] **2.1.5** 직원 대량 등록 기능 (CSV 업로드)
 
 ### 2.2 HR 모듈 - 출퇴근 관리
@@ -171,9 +171,9 @@
 
 ### 2.5 공통 기능 구현
 
-- [ ] **2.5.1** 데이터 유효성 검증 시스템
-- [ ] **2.5.2** 날짜/시간 처리 유틸리티
-- [ ] **2.5.3** 출력 포맷팅 시스템 (표, 컬러)
+- [x] **2.5.1** 데이터 유효성 검증 시스템
+- [x] **2.5.2** 날짜/시간 처리 유틸리티
+- [x] **2.5.3** 출력 포맷팅 시스템 (표, 컬러)
 - [ ] **2.5.4** 페이징 시스템
 - [ ] **2.5.5** 정렬 및 필터링 공통 모듈
 
@@ -440,8 +440,8 @@
 ## 📊 진행 상황 업데이트
 
 **마지막 업데이트**: 2025-09-21
-**현재 Phase**: Phase 1 완료 ✅
-**다음 작업**: Phase 2.1 HR 모듈 구현 시작
+**현재 Phase**: Phase 2 진행 중 (18% 완료) 🚧
+**다음 작업**: Phase 2.2 출퇴근 관리 구현
 
 ### 주간 체크리스트
 매주 금요일마다 진행 상황을 업데이트하고 다음 주 계획을 수립합니다.
@@ -450,6 +450,7 @@
 - [x] **Week 2**: Phase 1.2 완료 ✅
 - [x] **Week 3**: Phase 1.3 완료 ✅
 - [x] **Week 4**: Phase 1.4-1.5 완료 ✅
+- [x] **Week 5**: Phase 2.1 HR 직원관리 완료 ✅
 
 ### Phase 1 완료 현황 (2025-09-21)
 ✅ **모든 기반 구조 완성**
@@ -458,12 +459,23 @@
 - 인증 및 보안 시스템
 - 기본 유틸리티 및 에러 핸들링
 
+### Phase 2.1 완료 현황 (2025-09-21)
+✅ **HR 직원 관리 모듈 완성**
+- 부서 관리 CRUD 기능 (생성, 조회, 수정, 삭제)
+- 직원 관리 CRUD 기능 (생성, 조회, 수정, 삭제)
+- 직원 검색 및 필터링 기능
+- CSV/JSON 데이터 내보내기 기능
+- 테이블 형태 출력 포맷팅
+- 코드 품질 개선 및 테스트 완료
+
 **검증 완료된 기능:**
-- `clierp --help` 동작 확인
-- `clierp system status` 시스템 상태 확인
-- `clierp auth login/logout/whoami` 인증 기능
-- 데이터베이스 자동 마이그레이션
-- 기본 admin 사용자 생성
+- `clierp hr dept add/list/update/delete` 부서 관리
+- `clierp hr employee add/list/show/update/delete` 직원 관리
+- `clierp hr employee search` 직원 검색
+- `clierp hr dept export` 부서 데이터 내보내기
+- `clierp hr employee export` 직원 데이터 내보내기
+- 자동 직원 코드 생성 (EMP000001 형식)
+- 데이터 유효성 검증 시스템
 
 ---
 

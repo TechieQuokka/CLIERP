@@ -13,7 +13,7 @@ pub mod config;
 // Re-export main components for easier access
 pub use cli::app::CLIApp;
 pub use core::{error::CLIERPError, result::CLIERPResult};
-pub use database::connection::DatabaseConnection;
+pub use database::connection::{DatabaseConnection, DatabaseManager};
 
 /// Application version
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

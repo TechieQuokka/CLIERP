@@ -42,8 +42,8 @@ impl CommandRegistry {
     }
 
     /// Get a command by name
-    pub fn get(&self, name: &str) -> Option<&Box<dyn Command>> {
-        self.commands.get(name)
+    pub fn get(&self, name: &str) -> Option<&dyn Command> {
+        self.commands.get(name).map(|boxed| boxed.as_ref())
     }
 
     /// Get all available commands

@@ -5,9 +5,8 @@ use crate::core::{
     logging,
     auth::AuthService,
     command::{CLIArgs, CLICommands, CommandRegistry},
-    workflow::WorkflowEngine,
 };
-use crate::database::{connection::DatabaseConnection, migrations};
+use crate::database::{connection::DatabaseManager, migrations};
 use crate::cli::{commands::*, session::SessionManager};
 use clap::Parser;
 
@@ -15,7 +14,6 @@ pub struct CLIApp {
     config: CLIERPConfig,
     auth_service: AuthService,
     command_registry: CommandRegistry,
-    workflow_engine: WorkflowEngine,
     session_manager: SessionManager,
 }
 
@@ -23,25 +21,24 @@ impl CLIApp {
     pub fn new() -> CLIERPResult<Self> {
         // Load configuration
         let config = CLIERPConfig::load()
-            .map_err(|e| CLIERPError::Configuration(e))?;
+            .map_err(CLIERPError::Configuration)?;
 
         config.validate()
-            .map_err(|e| CLIERPError::Configuration(e))?;
+            .map_err(CLIERPError::Configuration)?;
 
         // Initialize logging
         logging::init_logging(&config)?;
 
         // Initialize database
-        DatabaseConnection::initialize(&config)?;
+        DatabaseManager::initialize(&config)?;
 
         // Run migrations
-        let mut conn = DatabaseConnection::establish_connection(&config.database.url)?;
+        let mut conn = DatabaseManager::establish_connection(&config.database.url)?;
         migrations::run_migrations(&mut conn)?;
 
         // Initialize services
         let auth_service = AuthService::new(config.clone());
         let command_registry = CommandRegistry::new();
-        let workflow_engine = WorkflowEngine::new();
         let session_manager = SessionManager::new(config.clone());
 
         // Create default admin user if needed
@@ -51,7 +48,6 @@ impl CLIApp {
             config,
             auth_service,
             command_registry,
-            workflow_engine,
             session_manager,
         })
     }
@@ -92,7 +88,7 @@ impl CLIApp {
 
         // Register HR commands
         self.command_registry.register(HrDeptListCommand::new());
-        self.command_registry.register(HrEmployeeListCommand::new());
+        self.command_registry.register(HrEmployeeListCommand::new(None));
 
         // More commands will be registered as modules are implemented
     }
@@ -128,7 +124,7 @@ impl CLIApp {
                 println!("Initializing CLIERP system...");
 
                 // Initialize database
-                let mut conn = DatabaseConnection::establish_connection(&self.config.database.url)?;
+                let mut conn = DatabaseManager::establish_connection(&self.config.database.url)?;
                 migrations::run_migrations(&mut conn)?;
 
                 // Create default admin
@@ -146,7 +142,8 @@ impl CLIApp {
                 println!("Database: Connected");
 
                 // Check database connection
-                match DatabaseConnection::get_connection() {
+                let db_manager = DatabaseManager::new()?;
+                match db_manager.get_connection() {
                     Ok(_) => println!("Database: ✓ Connected"),
                     Err(e) => println!("Database: ✗ Error - {}", e),
                 }
@@ -155,7 +152,7 @@ impl CLIApp {
             }
             SystemCommands::Migrate => {
                 println!("Running database migrations...");
-                let mut conn = DatabaseConnection::establish_connection(&self.config.database.url)?;
+                let mut conn = DatabaseManager::establish_connection(&self.config.database.url)?;
                 migrations::run_migrations(&mut conn)?;
                 println!("✓ Migrations completed successfully!");
                 Ok(())
@@ -208,7 +205,7 @@ impl CLIApp {
                     println!("Current User:");
                     println!("  Username: {}", user.username);
                     println!("  Email: {}", user.email);
-                    println!("  Role: {}", user.role.to_string());
+                    println!("  Role: {}", user.role);
                     if let Some(emp_id) = user.employee_id {
                         println!("  Employee ID: {}", emp_id);
                     }

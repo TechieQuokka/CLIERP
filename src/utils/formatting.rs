@@ -37,10 +37,70 @@ pub fn create_table<T: Tabled>(data: Vec<T>) -> String {
 
 /// Format currency amount
 pub fn format_currency(amount: i32) -> String {
-    format!("₩{}", amount)
+    format!("₩{}", format_number_with_commas(amount))
+}
+
+/// Format number with thousands separators
+pub fn format_number_with_commas(n: i32) -> String {
+    let s = n.to_string();
+    let mut result = String::new();
+    let chars: Vec<char> = s.chars().collect();
+
+    for (i, &c) in chars.iter().enumerate() {
+        if i > 0 && (chars.len() - i) % 3 == 0 {
+            result.push(',');
+        }
+        result.push(c);
+    }
+
+    result
 }
 
 /// Format percentage
 pub fn format_percentage(value: f64) -> String {
     format!("{:.1}%", value)
+}
+
+/// Format table from headers and rows
+pub fn format_table(headers: &[&str], rows: &[Vec<String>]) {
+    if rows.is_empty() {
+        println!("No data available");
+        return;
+    }
+
+    // Calculate column widths
+    let mut column_widths = headers.iter().map(|h| h.len()).collect::<Vec<_>>();
+
+    for row in rows {
+        for (i, cell) in row.iter().enumerate() {
+            if i < column_widths.len() {
+                column_widths[i] = column_widths[i].max(cell.len());
+            }
+        }
+    }
+
+    // Print header
+    print!("│");
+    for (i, header) in headers.iter().enumerate() {
+        print!(" {:width$} │", header, width = column_widths[i]);
+    }
+    println!();
+
+    // Print separator
+    print!("├");
+    for width in &column_widths {
+        print!("─{:─<width$}─┼", "", width = width);
+    }
+    println!("┤");
+
+    // Print rows
+    for row in rows {
+        print!("│");
+        for (i, cell) in row.iter().enumerate() {
+            if i < column_widths.len() {
+                print!(" {:width$} │", cell, width = column_widths[i]);
+            }
+        }
+        println!();
+    }
 }

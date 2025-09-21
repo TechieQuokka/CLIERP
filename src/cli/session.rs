@@ -10,12 +10,12 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct SessionData {
-    token: String,
-    username: String,
-    role: String,
-    employee_id: Option<i32>,
-    expires_at: i64,
+pub struct SessionData {
+    pub token: String,
+    pub username: String,
+    pub role: String,
+    pub employee_id: Option<i32>,
+    pub expires_at: i64,
 }
 
 pub struct SessionManager {

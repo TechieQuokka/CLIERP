@@ -31,6 +31,12 @@ impl Command for AuthLoginCommand {
 
 pub struct AuthLogoutCommand;
 
+impl Default for AuthLogoutCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AuthLogoutCommand {
     pub fn new() -> Self {
         Self
@@ -57,6 +63,12 @@ impl Command for AuthLogoutCommand {
 }
 
 pub struct AuthWhoamiCommand;
+
+impl Default for AuthWhoamiCommand {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl AuthWhoamiCommand {
     pub fn new() -> Self {

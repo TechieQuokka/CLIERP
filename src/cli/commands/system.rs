@@ -1,5 +1,6 @@
 use crate::core::{result::CLIERPResult, command::Command, auth::AuthenticatedUser};
 
+#[derive(Default)]
 pub struct SystemInitCommand;
 
 impl SystemInitCommand {
@@ -27,6 +28,7 @@ impl Command for SystemInitCommand {
     }
 }
 
+#[derive(Default)]
 pub struct SystemStatusCommand;
 
 impl SystemStatusCommand {
@@ -54,6 +56,7 @@ impl Command for SystemStatusCommand {
     }
 }
 
+#[derive(Default)]
 pub struct SystemMigrateCommand;
 
 impl SystemMigrateCommand {

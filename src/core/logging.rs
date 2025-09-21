@@ -1,11 +1,6 @@
 use crate::core::{config::CLIERPConfig, result::CLIERPResult};
 use tracing::Level;
-use tracing_subscriber::{
-    fmt,
-    layer::SubscriberExt,
-    util::SubscriberInitExt,
-    EnvFilter, Registry,
-};
+use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Registry};
 
 pub fn init_logging(config: &CLIERPConfig) -> CLIERPResult<()> {
     let level = match config.logging.level.as_str() {
@@ -21,8 +16,7 @@ pub fn init_logging(config: &CLIERPConfig) -> CLIERPResult<()> {
         .add_directive(format!("clierp={}", level).parse().unwrap())
         .add_directive("diesel=warn".parse().unwrap());
 
-    let registry = Registry::default()
-        .with(env_filter);
+    let registry = Registry::default().with(env_filter);
 
     match config.logging.format.as_str() {
         "compact" => {

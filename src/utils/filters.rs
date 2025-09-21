@@ -39,7 +39,10 @@ impl SearchQuery {
     }
 
     pub fn query(&self) -> Option<&str> {
-        self.query.as_ref().map(|q| q.trim()).filter(|q| !q.is_empty())
+        self.query
+            .as_ref()
+            .map(|q| q.trim())
+            .filter(|q| !q.is_empty())
     }
 
     pub fn matches(&self, text: &str) -> bool {
@@ -117,7 +120,11 @@ impl FilterParams {
         self
     }
 
-    pub fn with_date_range(mut self, from_date: Option<NaiveDate>, to_date: Option<NaiveDate>) -> Self {
+    pub fn with_date_range(
+        mut self,
+        from_date: Option<NaiveDate>,
+        to_date: Option<NaiveDate>,
+    ) -> Self {
         self.date_range = DateRange::new(from_date, to_date);
         self
     }
@@ -149,9 +156,14 @@ pub trait Filterable<T> {
 }
 
 // Helper functions for common filtering operations
-pub fn filter_by_status<T>(items: Vec<T>, status: &Option<String>, get_status: impl Fn(&T) -> &str) -> Vec<T> {
+pub fn filter_by_status<T>(
+    items: Vec<T>,
+    status: &Option<String>,
+    get_status: impl Fn(&T) -> &str,
+) -> Vec<T> {
     if let Some(status_filter) = status {
-        items.into_iter()
+        items
+            .into_iter()
             .filter(|item| get_status(item) == status_filter)
             .collect()
     } else {
@@ -159,11 +171,16 @@ pub fn filter_by_status<T>(items: Vec<T>, status: &Option<String>, get_status: i
     }
 }
 
-pub fn filter_by_search<T>(items: Vec<T>, search: &SearchQuery, get_searchable_text: impl Fn(&T) -> String) -> Vec<T> {
+pub fn filter_by_search<T>(
+    items: Vec<T>,
+    search: &SearchQuery,
+    get_searchable_text: impl Fn(&T) -> String,
+) -> Vec<T> {
     if search.is_empty() {
         items
     } else {
-        items.into_iter()
+        items
+            .into_iter()
             .filter(|item| {
                 let text = get_searchable_text(item);
                 search.matches(&text)
@@ -172,11 +189,16 @@ pub fn filter_by_search<T>(items: Vec<T>, search: &SearchQuery, get_searchable_t
     }
 }
 
-pub fn filter_by_date_range<T>(items: Vec<T>, date_range: &DateRange, get_date: impl Fn(&T) -> NaiveDate) -> Vec<T> {
+pub fn filter_by_date_range<T>(
+    items: Vec<T>,
+    date_range: &DateRange,
+    get_date: impl Fn(&T) -> NaiveDate,
+) -> Vec<T> {
     if date_range.is_empty() {
         items
     } else {
-        items.into_iter()
+        items
+            .into_iter()
             .filter(|item| {
                 let date = get_date(item);
                 date_range.contains(&date)
@@ -185,7 +207,11 @@ pub fn filter_by_date_range<T>(items: Vec<T>, date_range: &DateRange, get_date: 
     }
 }
 
-pub fn sort_items<T>(mut items: Vec<T>, sort: &SortOrder, compare: impl Fn(&T, &T, &SortDirection) -> std::cmp::Ordering) -> Vec<T> {
+pub fn sort_items<T>(
+    mut items: Vec<T>,
+    sort: &SortOrder,
+    compare: impl Fn(&T, &T, &SortDirection) -> std::cmp::Ordering,
+) -> Vec<T> {
     items.sort_by(|a, b| compare(a, b, &sort.direction));
     items
 }

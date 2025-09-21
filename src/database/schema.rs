@@ -117,14 +117,67 @@ diesel::table! {
     }
 }
 
+diesel::table! {
+    categories (id) {
+        id -> Integer,
+        name -> Text,
+        description -> Nullable<Text>,
+        parent_id -> Nullable<Integer>,
+        is_active -> Bool,
+        created_at -> Timestamp,
+        updated_at -> Timestamp,
+    }
+}
+
+diesel::table! {
+    products (id) {
+        id -> Integer,
+        sku -> Text,
+        name -> Text,
+        description -> Nullable<Text>,
+        category_id -> Integer,
+        price -> Integer,
+        cost_price -> Integer,
+        current_stock -> Integer,
+        min_stock_level -> Integer,
+        max_stock_level -> Nullable<Integer>,
+        unit -> Text,
+        barcode -> Nullable<Text>,
+        is_active -> Bool,
+        created_at -> Timestamp,
+        updated_at -> Timestamp,
+    }
+}
+
+diesel::table! {
+    stock_movements (id) {
+        id -> Integer,
+        product_id -> Integer,
+        movement_type -> Text,
+        quantity -> Integer,
+        unit_cost -> Nullable<Integer>,
+        reference_type -> Nullable<Text>,
+        reference_id -> Nullable<Integer>,
+        notes -> Nullable<Text>,
+        moved_by -> Nullable<Integer>,
+        movement_date -> Timestamp,
+    }
+}
+
 diesel::joinable!(employees -> departments (department_id));
 diesel::joinable!(users -> employees (employee_id));
 diesel::joinable!(audit_logs -> users (user_id));
 diesel::joinable!(attendances -> employees (employee_id));
 diesel::joinable!(payrolls -> employees (employee_id));
-diesel::joinable!(accounts -> accounts (parent_id));
+// Self-referential foreign key for parent accounts
+// diesel::joinable!(accounts -> accounts (parent_id));
 diesel::joinable!(transactions -> accounts (account_id));
 diesel::joinable!(transactions -> users (created_by));
+// Self-referential foreign key for parent categories
+// diesel::joinable!(categories -> categories (parent_id));
+diesel::joinable!(products -> categories (category_id));
+diesel::joinable!(stock_movements -> products (product_id));
+diesel::joinable!(stock_movements -> users (moved_by));
 
 diesel::allow_tables_to_appear_in_same_query!(
     departments,
@@ -135,4 +188,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     payrolls,
     accounts,
     transactions,
+    categories,
+    products,
+    stock_movements,
 );

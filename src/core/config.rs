@@ -80,7 +80,9 @@ impl CLIERPConfig {
         }
 
         // Validate database URL format
-        if !self.database.url.starts_with("sqlite:") && !self.database.url.starts_with("postgres://") {
+        if !self.database.url.starts_with("sqlite:")
+            && !self.database.url.starts_with("postgres://")
+        {
             return Err(ConfigError::Message(
                 "Database URL must start with 'sqlite:' or 'postgres://'".to_string(),
             ));

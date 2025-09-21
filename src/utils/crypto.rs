@@ -1,6 +1,6 @@
-use crate::core::{result::CLIERPResult, error::CLIERPError};
-use uuid::Uuid;
+use crate::core::{error::CLIERPError, result::CLIERPResult};
 use std::time::{SystemTime, UNIX_EPOCH};
+use uuid::Uuid;
 
 /// Generate a unique identifier
 pub fn generate_id() -> String {

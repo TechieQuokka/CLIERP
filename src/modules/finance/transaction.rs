@@ -1,12 +1,12 @@
+use chrono::{Local, NaiveDate};
 use diesel::prelude::*;
-use chrono::{NaiveDate, Local};
 use serde::{Deserialize, Serialize};
 
-use crate::core::result::CLIERPResult;
-use crate::core::error::CLIERPError;
-use crate::database::models::{Transaction, NewTransaction, Account, User};
-use crate::database::schema::{transactions, accounts, users};
 use super::account::AccountService;
+use crate::core::error::CLIERPError;
+use crate::core::result::CLIERPResult;
+use crate::database::models::{Account, NewTransaction, Transaction};
+use crate::database::schema::{accounts, transactions};
 
 pub struct TransactionService;
 
@@ -16,7 +16,12 @@ impl TransactionService {
     }
 
     /// Create a new transaction
-    pub fn create_transaction(&self, conn: &mut SqliteConnection, request: CreateTransactionRequest, created_by: Option<i32>) -> CLIERPResult<Transaction> {
+    pub fn create_transaction(
+        &self,
+        conn: &mut SqliteConnection,
+        request: CreateTransactionRequest,
+        created_by: Option<i32>,
+    ) -> CLIERPResult<Transaction> {
         // Validate account exists
         let account = accounts::table
             .find(request.account_id)
@@ -25,17 +30,23 @@ impl TransactionService {
             .ok_or_else(|| CLIERPError::NotFound("Account not found".to_string()))?;
 
         if !account.is_active {
-            return Err(CLIERPError::ValidationError("Cannot post to inactive account".to_string()));
+            return Err(CLIERPError::ValidationError(
+                "Cannot post to inactive account".to_string(),
+            ));
         }
 
         // Validate amount is not zero
         if request.amount == 0 {
-            return Err(CLIERPError::ValidationError("Transaction amount cannot be zero".to_string()));
+            return Err(CLIERPError::ValidationError(
+                "Transaction amount cannot be zero".to_string(),
+            ));
         }
 
         // Validate debit/credit
         if request.debit_credit != "debit" && request.debit_credit != "credit" {
-            return Err(CLIERPError::ValidationError("Transaction must be either 'debit' or 'credit'".to_string()));
+            return Err(CLIERPError::ValidationError(
+                "Transaction must be either 'debit' or 'credit'".to_string(),
+            ));
         }
 
         let new_transaction = NewTransaction {
@@ -48,9 +59,16 @@ impl TransactionService {
             created_by,
         };
 
-        let transaction = diesel::insert_into(transactions::table)
+        diesel::insert_into(transactions::table)
             .values(&new_transaction)
-            .get_result::<Transaction>(conn)?;
+            .execute(conn)?;
+
+        let transaction = transactions::table
+            .filter(transactions::account_id.eq(request.account_id))
+            .filter(transactions::transaction_date.eq(request.transaction_date))
+            .filter(transactions::amount.eq(request.amount))
+            .order(transactions::id.desc())
+            .first::<Transaction>(conn)?;
 
         // Update account balance
         self.update_account_balance(conn, &account, &transaction)?;
@@ -59,7 +77,11 @@ impl TransactionService {
     }
 
     /// Get transaction by ID
-    pub fn get_transaction_by_id(&self, conn: &mut SqliteConnection, transaction_id: i32) -> CLIERPResult<Option<TransactionWithAccount>> {
+    pub fn get_transaction_by_id(
+        &self,
+        conn: &mut SqliteConnection,
+        transaction_id: i32,
+    ) -> CLIERPResult<Option<TransactionWithAccount>> {
         let result = transactions::table
             .inner_join(accounts::table)
             .filter(transactions::id.eq(transaction_id))
@@ -74,10 +96,12 @@ impl TransactionService {
     }
 
     /// List transactions with filters
-    pub fn list_transactions(&self, conn: &mut SqliteConnection, filters: TransactionFilters) -> CLIERPResult<Vec<TransactionWithAccount>> {
-        let mut query = transactions::table
-            .inner_join(accounts::table)
-            .into_boxed();
+    pub fn list_transactions(
+        &self,
+        conn: &mut SqliteConnection,
+        filters: TransactionFilters,
+    ) -> CLIERPResult<Vec<TransactionWithAccount>> {
+        let mut query = transactions::table.inner_join(accounts::table).into_boxed();
 
         if let Some(account_id) = filters.account_id {
             query = query.filter(transactions::account_id.eq(account_id));
@@ -104,14 +128,23 @@ impl TransactionService {
             .order(transactions::transaction_date.desc())
             .load::<(Transaction, Account)>(conn)?;
 
-        Ok(results.into_iter().map(|(transaction, account)| TransactionWithAccount {
-            transaction,
-            account,
-        }).collect())
+        Ok(results
+            .into_iter()
+            .map(|(transaction, account)| TransactionWithAccount {
+                transaction,
+                account,
+            })
+            .collect())
     }
 
     /// Get account transactions
-    pub fn get_account_transactions(&self, conn: &mut SqliteConnection, account_id: i32, from_date: Option<NaiveDate>, to_date: Option<NaiveDate>) -> CLIERPResult<Vec<Transaction>> {
+    pub fn get_account_transactions(
+        &self,
+        conn: &mut SqliteConnection,
+        account_id: i32,
+        from_date: Option<NaiveDate>,
+        to_date: Option<NaiveDate>,
+    ) -> CLIERPResult<Vec<Transaction>> {
         let mut query = transactions::table
             .filter(transactions::account_id.eq(account_id))
             .into_boxed();
@@ -132,7 +165,13 @@ impl TransactionService {
     }
 
     /// Get general ledger for an account
-    pub fn get_general_ledger(&self, conn: &mut SqliteConnection, account_id: i32, from_date: Option<NaiveDate>, to_date: Option<NaiveDate>) -> CLIERPResult<GeneralLedger> {
+    pub fn get_general_ledger(
+        &self,
+        conn: &mut SqliteConnection,
+        account_id: i32,
+        from_date: Option<NaiveDate>,
+        to_date: Option<NaiveDate>,
+    ) -> CLIERPResult<GeneralLedger> {
         let account = accounts::table
             .find(account_id)
             .first::<Account>(conn)
@@ -185,7 +224,12 @@ impl TransactionService {
     }
 
     /// Update account balance after transaction
-    fn update_account_balance(&self, conn: &mut SqliteConnection, account: &Account, transaction: &Transaction) -> CLIERPResult<()> {
+    fn update_account_balance(
+        &self,
+        conn: &mut SqliteConnection,
+        account: &Account,
+        transaction: &Transaction,
+    ) -> CLIERPResult<()> {
         let account_service = AccountService::new();
 
         let new_balance = match transaction.debit_credit.as_str() {
@@ -199,7 +243,13 @@ impl TransactionService {
     }
 
     /// Reverse a transaction
-    pub fn reverse_transaction(&self, conn: &mut SqliteConnection, transaction_id: i32, reason: String, created_by: Option<i32>) -> CLIERPResult<Transaction> {
+    pub fn reverse_transaction(
+        &self,
+        conn: &mut SqliteConnection,
+        transaction_id: i32,
+        reason: String,
+        created_by: Option<i32>,
+    ) -> CLIERPResult<Transaction> {
         let original_transaction = transactions::table
             .find(transaction_id)
             .first::<Transaction>(conn)
@@ -210,7 +260,11 @@ impl TransactionService {
         let reverse_debit_credit = match original_transaction.debit_credit.as_str() {
             "debit" => "credit",
             "credit" => "debit",
-            _ => return Err(CLIERPError::ValidationError("Invalid original transaction type".to_string())),
+            _ => {
+                return Err(CLIERPError::ValidationError(
+                    "Invalid original transaction type".to_string(),
+                ))
+            }
         };
 
         let reverse_transaction_request = CreateTransactionRequest {
@@ -218,7 +272,10 @@ impl TransactionService {
             transaction_date: Local::now().date_naive(),
             amount: original_transaction.amount,
             debit_credit: reverse_debit_credit.to_string(),
-            description: format!("REVERSAL: {} - {}", original_transaction.description, reason),
+            description: format!(
+                "REVERSAL: {} - {}",
+                original_transaction.description, reason
+            ),
             reference: Some(format!("REV-{}", original_transaction.id)),
         };
 
@@ -226,18 +283,25 @@ impl TransactionService {
     }
 
     /// Get transaction summary for a period
-    pub fn get_transaction_summary(&self, conn: &mut SqliteConnection, from_date: NaiveDate, to_date: NaiveDate) -> CLIERPResult<TransactionSummary> {
+    pub fn get_transaction_summary(
+        &self,
+        conn: &mut SqliteConnection,
+        from_date: NaiveDate,
+        to_date: NaiveDate,
+    ) -> CLIERPResult<TransactionSummary> {
         let transactions = transactions::table
             .filter(transactions::transaction_date.ge(from_date))
             .filter(transactions::transaction_date.le(to_date))
             .load::<Transaction>(conn)?;
 
         let total_transactions = transactions.len() as i32;
-        let total_debits = transactions.iter()
+        let total_debits = transactions
+            .iter()
             .filter(|t| t.debit_credit == "debit")
             .map(|t| t.amount)
             .sum::<i32>();
-        let total_credits = transactions.iter()
+        let total_credits = transactions
+            .iter()
             .filter(|t| t.debit_credit == "credit")
             .map(|t| t.amount)
             .sum::<i32>();

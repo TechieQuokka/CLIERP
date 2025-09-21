@@ -1,11 +1,11 @@
+use chrono::{Local, NaiveDate};
 use diesel::prelude::*;
-use chrono::{NaiveDate, Local, Datelike};
 use serde::{Deserialize, Serialize};
 
-use crate::core::result::CLIERPResult;
 use crate::core::error::CLIERPError;
-use crate::database::models::{Payroll, NewPayroll, PayrollStatus, Employee, Attendance};
-use crate::database::schema::{payrolls, employees, attendances};
+use crate::core::result::CLIERPResult;
+use crate::database::models::{Attendance, Employee, NewPayroll, Payroll, PayrollStatus};
+use crate::database::schema::{attendances, employees, payrolls};
 
 pub struct PayrollService;
 
@@ -15,7 +15,12 @@ impl PayrollService {
     }
 
     /// Calculate payroll for an employee for a specific period
-    pub fn calculate_payroll(&self, conn: &mut SqliteConnection, employee_id: i32, period: String) -> CLIERPResult<PayrollCalculation> {
+    pub fn calculate_payroll(
+        &self,
+        conn: &mut SqliteConnection,
+        employee_id: i32,
+        period: String,
+    ) -> CLIERPResult<PayrollCalculation> {
         let employee = employees::table
             .find(employee_id)
             .first::<Employee>(conn)
@@ -25,16 +30,22 @@ impl PayrollService {
         // Parse period (YYYY-MM format)
         let parts: Vec<&str> = period.split('-').collect();
         if parts.len() != 2 {
-            return Err(CLIERPError::ValidationError("Period must be in YYYY-MM format".to_string()));
+            return Err(CLIERPError::ValidationError(
+                "Period must be in YYYY-MM format".to_string(),
+            ));
         }
 
-        let year: i32 = parts[0].parse()
+        let year: i32 = parts[0]
+            .parse()
             .map_err(|_| CLIERPError::ValidationError("Invalid year in period".to_string()))?;
-        let month: u32 = parts[1].parse()
+        let month: u32 = parts[1]
+            .parse()
             .map_err(|_| CLIERPError::ValidationError("Invalid month in period".to_string()))?;
 
         if month < 1 || month > 12 {
-            return Err(CLIERPError::ValidationError("Month must be between 1 and 12".to_string()));
+            return Err(CLIERPError::ValidationError(
+                "Month must be between 1 and 12".to_string(),
+            ));
         }
 
         // Get attendance data for the period
@@ -57,9 +68,7 @@ impl PayrollService {
             .load::<Attendance>(conn)?;
 
         // Calculate overtime hours
-        let total_overtime_hours: f32 = attendances.iter()
-            .map(|a| a.overtime_hours)
-            .sum();
+        let total_overtime_hours: f32 = attendances.iter().map(|a| a.overtime_hours).sum();
 
         // Calculate overtime pay (assuming 1.5x hourly rate)
         let daily_rate = employee.salary / 30; // Approximate daily rate
@@ -89,7 +98,13 @@ impl PayrollService {
     }
 
     /// Generate payroll record
-    pub fn generate_payroll(&self, conn: &mut SqliteConnection, calculation: PayrollCalculation, bonuses: Option<i32>, additional_deductions: Option<i32>) -> CLIERPResult<Payroll> {
+    pub fn generate_payroll(
+        &self,
+        conn: &mut SqliteConnection,
+        calculation: PayrollCalculation,
+        bonuses: Option<i32>,
+        additional_deductions: Option<i32>,
+    ) -> CLIERPResult<Payroll> {
         // Check if payroll already exists for this period
         let existing = payrolls::table
             .filter(payrolls::employee_id.eq(calculation.employee_id))
@@ -98,9 +113,10 @@ impl PayrollService {
             .optional()?;
 
         if existing.is_some() {
-            return Err(CLIERPError::ValidationError(
-                format!("Payroll already exists for employee {} in period {}", calculation.employee_id, calculation.period)
-            ));
+            return Err(CLIERPError::ValidationError(format!(
+                "Payroll already exists for employee {} in period {}",
+                calculation.employee_id, calculation.period
+            )));
         }
 
         let final_bonuses = bonuses.unwrap_or(0);
@@ -120,40 +136,65 @@ impl PayrollService {
             status: PayrollStatus::Pending.to_string(),
         };
 
-        let payroll = diesel::insert_into(payrolls::table)
+        diesel::insert_into(payrolls::table)
             .values(&new_payroll)
-            .get_result::<Payroll>(conn)?;
+            .execute(conn)?;
+
+        let payroll = payrolls::table
+            .filter(payrolls::employee_id.eq(new_payroll.employee_id))
+            .filter(payrolls::period.eq(&new_payroll.period))
+            .first::<Payroll>(conn)?;
 
         Ok(payroll)
     }
 
     /// Process payroll (mark as processed)
-    pub fn process_payroll(&self, conn: &mut SqliteConnection, payroll_id: i32) -> CLIERPResult<Payroll> {
-        let payroll = diesel::update(payrolls::table)
+    pub fn process_payroll(
+        &self,
+        conn: &mut SqliteConnection,
+        payroll_id: i32,
+    ) -> CLIERPResult<Payroll> {
+        diesel::update(payrolls::table)
             .filter(payrolls::id.eq(payroll_id))
             .set(payrolls::status.eq(PayrollStatus::Processed.to_string()))
-            .get_result::<Payroll>(conn)?;
+            .execute(conn)?;
+
+        let payroll = payrolls::table
+            .filter(payrolls::id.eq(payroll_id))
+            .first::<Payroll>(conn)?;
 
         Ok(payroll)
     }
 
     /// Pay payroll (mark as paid and set payment date)
-    pub fn pay_payroll(&self, conn: &mut SqliteConnection, payroll_id: i32) -> CLIERPResult<Payroll> {
+    pub fn pay_payroll(
+        &self,
+        conn: &mut SqliteConnection,
+        payroll_id: i32,
+    ) -> CLIERPResult<Payroll> {
         let today = Local::now().date_naive();
 
-        let payroll = diesel::update(payrolls::table)
+        diesel::update(payrolls::table)
             .filter(payrolls::id.eq(payroll_id))
             .set((
                 payrolls::status.eq(PayrollStatus::Paid.to_string()),
                 payrolls::payment_date.eq(Some(today)),
             ))
-            .get_result::<Payroll>(conn)?;
+            .execute(conn)?;
+
+        let payroll = payrolls::table
+            .filter(payrolls::id.eq(payroll_id))
+            .first::<Payroll>(conn)?;
 
         Ok(payroll)
     }
 
     /// Get payroll by ID
-    pub fn get_payroll_by_id(&self, conn: &mut SqliteConnection, payroll_id: i32) -> CLIERPResult<Option<PayrollWithEmployee>> {
+    pub fn get_payroll_by_id(
+        &self,
+        conn: &mut SqliteConnection,
+        payroll_id: i32,
+    ) -> CLIERPResult<Option<PayrollWithEmployee>> {
         let result = payrolls::table
             .inner_join(employees::table)
             .filter(payrolls::id.eq(payroll_id))
@@ -161,28 +202,33 @@ impl PayrollService {
             .first::<(Payroll, Employee)>(conn)
             .optional()?;
 
-        Ok(result.map(|(payroll, employee)| PayrollWithEmployee {
-            payroll,
-            employee,
-        }))
+        Ok(result.map(|(payroll, employee)| PayrollWithEmployee { payroll, employee }))
     }
 
     /// Get payrolls for a specific period
-    pub fn get_payrolls_by_period(&self, conn: &mut SqliteConnection, period: &str) -> CLIERPResult<Vec<PayrollWithEmployee>> {
+    pub fn get_payrolls_by_period(
+        &self,
+        conn: &mut SqliteConnection,
+        period: &str,
+    ) -> CLIERPResult<Vec<PayrollWithEmployee>> {
         let results = payrolls::table
             .inner_join(employees::table)
             .filter(payrolls::period.eq(period))
             .select((Payroll::as_select(), Employee::as_select()))
             .load::<(Payroll, Employee)>(conn)?;
 
-        Ok(results.into_iter().map(|(payroll, employee)| PayrollWithEmployee {
-            payroll,
-            employee,
-        }).collect())
+        Ok(results
+            .into_iter()
+            .map(|(payroll, employee)| PayrollWithEmployee { payroll, employee })
+            .collect())
     }
 
     /// Get payroll history for an employee
-    pub fn get_employee_payroll_history(&self, conn: &mut SqliteConnection, employee_id: i32) -> CLIERPResult<Vec<Payroll>> {
+    pub fn get_employee_payroll_history(
+        &self,
+        conn: &mut SqliteConnection,
+        employee_id: i32,
+    ) -> CLIERPResult<Vec<Payroll>> {
         let payrolls = payrolls::table
             .filter(payrolls::employee_id.eq(employee_id))
             .order(payrolls::period.desc())
@@ -192,21 +238,28 @@ impl PayrollService {
     }
 
     /// Get pending payrolls
-    pub fn get_pending_payrolls(&self, conn: &mut SqliteConnection) -> CLIERPResult<Vec<PayrollWithEmployee>> {
+    pub fn get_pending_payrolls(
+        &self,
+        conn: &mut SqliteConnection,
+    ) -> CLIERPResult<Vec<PayrollWithEmployee>> {
         let results = payrolls::table
             .inner_join(employees::table)
             .filter(payrolls::status.eq(PayrollStatus::Pending.to_string()))
             .select((Payroll::as_select(), Employee::as_select()))
             .load::<(Payroll, Employee)>(conn)?;
 
-        Ok(results.into_iter().map(|(payroll, employee)| PayrollWithEmployee {
-            payroll,
-            employee,
-        }).collect())
+        Ok(results
+            .into_iter()
+            .map(|(payroll, employee)| PayrollWithEmployee { payroll, employee })
+            .collect())
     }
 
     /// Calculate payroll for all employees in a period
-    pub fn calculate_period_payrolls(&self, conn: &mut SqliteConnection, period: String) -> CLIERPResult<Vec<PayrollCalculation>> {
+    pub fn calculate_period_payrolls(
+        &self,
+        conn: &mut SqliteConnection,
+        period: String,
+    ) -> CLIERPResult<Vec<PayrollCalculation>> {
         let employees = employees::table
             .filter(employees::status.eq("active"))
             .load::<Employee>(conn)?;
@@ -217,7 +270,10 @@ impl PayrollService {
             match self.calculate_payroll(conn, employee.id, period.clone()) {
                 Ok(calculation) => calculations.push(calculation),
                 Err(e) => {
-                    eprintln!("Warning: Failed to calculate payroll for employee {}: {}", employee.id, e);
+                    eprintln!(
+                        "Warning: Failed to calculate payroll for employee {}: {}",
+                        employee.id, e
+                    );
                 }
             }
         }
@@ -226,8 +282,13 @@ impl PayrollService {
     }
 
     /// Generate payslip data
-    pub fn generate_payslip(&self, conn: &mut SqliteConnection, payroll_id: i32) -> CLIERPResult<Payslip> {
-        let payroll_with_employee = self.get_payroll_by_id(conn, payroll_id)?
+    pub fn generate_payslip(
+        &self,
+        conn: &mut SqliteConnection,
+        payroll_id: i32,
+    ) -> CLIERPResult<Payslip> {
+        let payroll_with_employee = self
+            .get_payroll_by_id(conn, payroll_id)?
             .ok_or_else(|| CLIERPError::NotFound("Payroll not found".to_string()))?;
 
         let payslip = Payslip {
@@ -241,9 +302,9 @@ impl PayrollService {
             base_salary: payroll_with_employee.payroll.base_salary,
             overtime_pay: payroll_with_employee.payroll.overtime_pay,
             bonuses: payroll_with_employee.payroll.bonuses,
-            gross_salary: payroll_with_employee.payroll.base_salary +
-                         payroll_with_employee.payroll.overtime_pay +
-                         payroll_with_employee.payroll.bonuses,
+            gross_salary: payroll_with_employee.payroll.base_salary
+                + payroll_with_employee.payroll.overtime_pay
+                + payroll_with_employee.payroll.bonuses,
             deductions: payroll_with_employee.payroll.deductions,
             net_salary: payroll_with_employee.payroll.net_salary,
             payment_date: payroll_with_employee.payroll.payment_date,

@@ -1,9 +1,13 @@
-use crate::core::{result::CLIERPResult, error::CLIERPError, config::CLIERPConfig};
-use crate::database::{models::{User, NewUser, UserRole}, connection::DatabaseManager, schema::users};
+use crate::core::{config::CLIERPConfig, error::CLIERPError, result::CLIERPResult};
+use crate::database::{
+    connection::DatabaseManager,
+    models::{NewUser, User, UserRole},
+    schema::users,
+};
 use bcrypt::{hash, verify};
-use chrono::{Utc, Duration};
+use chrono::{Duration, Utc};
 use diesel::prelude::*;
-use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation, Algorithm};
+use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 use std::env;
 
@@ -12,8 +16,8 @@ pub struct Claims {
     pub sub: String,      // Subject (user id)
     pub username: String, // Username
     pub role: String,     // User role
-    pub exp: usize,      // Expiration time
-    pub iat: usize,      // Issued at
+    pub exp: usize,       // Expiration time
+    pub iat: usize,       // Issued at
 }
 
 #[derive(Debug)]
@@ -93,7 +97,9 @@ impl AuthService {
             .map_err(|_| CLIERPError::Authentication("Invalid username or password".to_string()))?;
 
         if !self.verify_password(password, &user.password_hash)? {
-            return Err(CLIERPError::Authentication("Invalid username or password".to_string()));
+            return Err(CLIERPError::Authentication(
+                "Invalid username or password".to_string(),
+            ));
         }
 
         // Update last login
@@ -144,8 +150,8 @@ impl AuthService {
         let decoding_key = DecodingKey::from_secret(self.config.auth.jwt_secret.as_ref());
         let validation = Validation::new(Algorithm::HS256);
 
-        let token_data = decode::<Claims>(token, &decoding_key, &validation)
-            .map_err(CLIERPError::Jwt)?;
+        let token_data =
+            decode::<Claims>(token, &decoding_key, &validation).map_err(CLIERPError::Jwt)?;
 
         Ok(token_data.claims)
     }
@@ -199,8 +205,8 @@ impl AuthService {
         if admin_count == 0 {
             tracing::info!("Creating default admin user...");
 
-            let default_password = env::var("CLIERP_ADMIN_PASSWORD")
-                .unwrap_or_else(|_| "admin123".to_string());
+            let default_password =
+                env::var("CLIERP_ADMIN_PASSWORD").unwrap_or_else(|_| "admin123".to_string());
 
             self.create_user(
                 "admin".to_string(),
@@ -210,7 +216,9 @@ impl AuthService {
                 None,
             )?;
 
-            tracing::warn!("Default admin user created with username 'admin'. Please change the password!");
+            tracing::warn!(
+                "Default admin user created with username 'admin'. Please change the password!"
+            );
         }
 
         Ok(())

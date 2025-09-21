@@ -1,4 +1,4 @@
-use crate::core::{result::CLIERPResult, command::Command, auth::AuthenticatedUser};
+use crate::core::{auth::AuthenticatedUser, command::Command, result::CLIERPResult};
 
 #[derive(Default)]
 pub struct SystemInitCommand;
@@ -10,7 +10,11 @@ impl SystemInitCommand {
 }
 
 impl Command for SystemInitCommand {
-    fn execute(&self, _args: &dyn std::any::Any, _user: Option<&AuthenticatedUser>) -> CLIERPResult<()> {
+    fn execute(
+        &self,
+        _args: &dyn std::any::Any,
+        _user: Option<&AuthenticatedUser>,
+    ) -> CLIERPResult<()> {
         println!("System initialization complete!");
         Ok(())
     }
@@ -38,7 +42,11 @@ impl SystemStatusCommand {
 }
 
 impl Command for SystemStatusCommand {
-    fn execute(&self, _args: &dyn std::any::Any, _user: Option<&AuthenticatedUser>) -> CLIERPResult<()> {
+    fn execute(
+        &self,
+        _args: &dyn std::any::Any,
+        _user: Option<&AuthenticatedUser>,
+    ) -> CLIERPResult<()> {
         println!("System status: OK");
         Ok(())
     }
@@ -66,7 +74,11 @@ impl SystemMigrateCommand {
 }
 
 impl Command for SystemMigrateCommand {
-    fn execute(&self, _args: &dyn std::any::Any, _user: Option<&AuthenticatedUser>) -> CLIERPResult<()> {
+    fn execute(
+        &self,
+        _args: &dyn std::any::Any,
+        _user: Option<&AuthenticatedUser>,
+    ) -> CLIERPResult<()> {
         println!("Database migrations completed!");
         Ok(())
     }

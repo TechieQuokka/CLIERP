@@ -1,9 +1,9 @@
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::core::result::CLIERPResult;
 use crate::core::error::CLIERPError;
-use crate::database::models::{Account, NewAccount, AccountType};
+use crate::core::result::CLIERPResult;
+use crate::database::models::{Account, NewAccount};
 use crate::database::schema::accounts;
 
 pub struct AccountService;
@@ -14,7 +14,11 @@ impl AccountService {
     }
 
     /// Create a new account
-    pub fn create_account(&self, conn: &mut SqliteConnection, request: CreateAccountRequest) -> CLIERPResult<Account> {
+    pub fn create_account(
+        &self,
+        conn: &mut SqliteConnection,
+        request: CreateAccountRequest,
+    ) -> CLIERPResult<Account> {
         // Validate account code uniqueness
         let existing = accounts::table
             .filter(accounts::account_code.eq(&request.account_code))
@@ -22,9 +26,10 @@ impl AccountService {
             .optional()?;
 
         if existing.is_some() {
-            return Err(CLIERPError::ValidationError(
-                format!("Account code '{}' already exists", request.account_code)
-            ));
+            return Err(CLIERPError::ValidationError(format!(
+                "Account code '{}' already exists",
+                request.account_code
+            )));
         }
 
         // Validate parent account exists if specified
@@ -35,9 +40,10 @@ impl AccountService {
                 .optional()?;
 
             if parent_exists.is_none() {
-                return Err(CLIERPError::ValidationError(
-                    format!("Parent account with ID {} not found", parent_id)
-                ));
+                return Err(CLIERPError::ValidationError(format!(
+                    "Parent account with ID {} not found",
+                    parent_id
+                )));
             }
         }
 
@@ -50,15 +56,23 @@ impl AccountService {
             is_active: true,
         };
 
-        let account = diesel::insert_into(accounts::table)
+        diesel::insert_into(accounts::table)
             .values(&new_account)
-            .get_result::<Account>(conn)?;
+            .execute(conn)?;
+
+        let account = accounts::table
+            .filter(accounts::account_code.eq(&new_account.account_code))
+            .first::<Account>(conn)?;
 
         Ok(account)
     }
 
     /// Get account by ID
-    pub fn get_account_by_id(&self, conn: &mut SqliteConnection, account_id: i32) -> CLIERPResult<Option<Account>> {
+    pub fn get_account_by_id(
+        &self,
+        conn: &mut SqliteConnection,
+        account_id: i32,
+    ) -> CLIERPResult<Option<Account>> {
         let account = accounts::table
             .find(account_id)
             .first::<Account>(conn)
@@ -68,7 +82,11 @@ impl AccountService {
     }
 
     /// Get account by code
-    pub fn get_account_by_code(&self, conn: &mut SqliteConnection, account_code: &str) -> CLIERPResult<Option<Account>> {
+    pub fn get_account_by_code(
+        &self,
+        conn: &mut SqliteConnection,
+        account_code: &str,
+    ) -> CLIERPResult<Option<Account>> {
         let account = accounts::table
             .filter(accounts::account_code.eq(account_code))
             .first::<Account>(conn)
@@ -88,7 +106,11 @@ impl AccountService {
     }
 
     /// List accounts by type
-    pub fn list_accounts_by_type(&self, conn: &mut SqliteConnection, account_type: &str) -> CLIERPResult<Vec<Account>> {
+    pub fn list_accounts_by_type(
+        &self,
+        conn: &mut SqliteConnection,
+        account_type: &str,
+    ) -> CLIERPResult<Vec<Account>> {
         let accounts = accounts::table
             .filter(accounts::account_type.eq(account_type))
             .filter(accounts::is_active.eq(true))
@@ -99,7 +121,11 @@ impl AccountService {
     }
 
     /// Update account
-    pub fn update_account(&self, conn: &mut SqliteConnection, request: UpdateAccountRequest) -> CLIERPResult<Account> {
+    pub fn update_account(
+        &self,
+        conn: &mut SqliteConnection,
+        request: UpdateAccountRequest,
+    ) -> CLIERPResult<Account> {
         // Check if account exists
         let existing = accounts::table
             .find(request.id)
@@ -117,15 +143,16 @@ impl AccountService {
                     .optional()?;
 
                 if code_exists.is_some() {
-                    return Err(CLIERPError::ValidationError(
-                        format!("Account code '{}' already exists", new_code)
-                    ));
+                    return Err(CLIERPError::ValidationError(format!(
+                        "Account code '{}' already exists",
+                        new_code
+                    )));
                 }
             }
         }
 
         // Build update query dynamically
-        let account = diesel::update(accounts::table)
+        diesel::update(accounts::table)
             .filter(accounts::id.eq(request.id))
             .set((
                 accounts::account_code.eq(request.account_code.unwrap_or(existing.account_code)),
@@ -133,13 +160,21 @@ impl AccountService {
                 accounts::account_type.eq(request.account_type.unwrap_or(existing.account_type)),
                 accounts::parent_id.eq(request.parent_id.or(existing.parent_id)),
             ))
-            .get_result::<Account>(conn)?;
+            .execute(conn)?;
+
+        let account = accounts::table
+            .filter(accounts::id.eq(request.id))
+            .first::<Account>(conn)?;
 
         Ok(account)
     }
 
     /// Deactivate account (soft delete)
-    pub fn deactivate_account(&self, conn: &mut SqliteConnection, account_id: i32) -> CLIERPResult<()> {
+    pub fn deactivate_account(
+        &self,
+        conn: &mut SqliteConnection,
+        account_id: i32,
+    ) -> CLIERPResult<()> {
         let rows_affected = diesel::update(accounts::table)
             .filter(accounts::id.eq(account_id))
             .set(accounts::is_active.eq(false))
@@ -153,7 +188,11 @@ impl AccountService {
     }
 
     /// Get account balance
-    pub fn get_account_balance(&self, conn: &mut SqliteConnection, account_id: i32) -> CLIERPResult<i32> {
+    pub fn get_account_balance(
+        &self,
+        conn: &mut SqliteConnection,
+        account_id: i32,
+    ) -> CLIERPResult<i32> {
         let account = accounts::table
             .find(account_id)
             .first::<Account>(conn)
@@ -164,17 +203,29 @@ impl AccountService {
     }
 
     /// Update account balance
-    pub fn update_account_balance(&self, conn: &mut SqliteConnection, account_id: i32, new_balance: i32) -> CLIERPResult<Account> {
-        let account = diesel::update(accounts::table)
+    pub fn update_account_balance(
+        &self,
+        conn: &mut SqliteConnection,
+        account_id: i32,
+        new_balance: i32,
+    ) -> CLIERPResult<Account> {
+        diesel::update(accounts::table)
             .filter(accounts::id.eq(account_id))
             .set(accounts::balance.eq(new_balance))
-            .get_result::<Account>(conn)?;
+            .execute(conn)?;
+
+        let account = accounts::table
+            .filter(accounts::id.eq(account_id))
+            .first::<Account>(conn)?;
 
         Ok(account)
     }
 
     /// Get chart of accounts (hierarchical structure)
-    pub fn get_chart_of_accounts(&self, conn: &mut SqliteConnection) -> CLIERPResult<Vec<AccountNode>> {
+    pub fn get_chart_of_accounts(
+        &self,
+        conn: &mut SqliteConnection,
+    ) -> CLIERPResult<Vec<AccountNode>> {
         let all_accounts = self.list_accounts(conn)?;
         let mut account_map = std::collections::HashMap::new();
         let mut root_accounts = Vec::new();
@@ -190,7 +241,7 @@ impl AccountService {
 
         // Build hierarchy
         let mut accounts_copy = account_map.clone();
-        for (account_id, node) in account_map.iter() {
+        for (_account_id, node) in account_map.iter() {
             if let Some(parent_id) = node.account.parent_id {
                 if let Some(parent_node) = accounts_copy.get_mut(&parent_id) {
                     parent_node.children.push(node.clone());

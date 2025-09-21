@@ -1,13 +1,13 @@
 use crate::core::{
-    result::CLIERPResult,
-    error::CLIERPError,
-    config::CLIERPConfig,
     auth::{AuthService, AuthenticatedUser},
+    config::CLIERPConfig,
+    error::CLIERPError,
+    result::CLIERPResult,
 };
 use crate::database::models::UserRole;
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
-use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SessionData {
@@ -48,11 +48,10 @@ impl SessionManager {
             expires_at: claims.exp as i64,
         };
 
-        let json = serde_json::to_string_pretty(&session_data)
-            .map_err(CLIERPError::Serialization)?;
+        let json =
+            serde_json::to_string_pretty(&session_data).map_err(CLIERPError::Serialization)?;
 
-        fs::write(&self.session_file, json)
-            .map_err(CLIERPError::Io)?;
+        fs::write(&self.session_file, json).map_err(CLIERPError::Io)?;
 
         tracing::debug!("Session saved to: {:?}", self.session_file);
         Ok(())
@@ -64,11 +63,10 @@ impl SessionManager {
             return Ok(None);
         }
 
-        let content = fs::read_to_string(&self.session_file)
-            .map_err(CLIERPError::Io)?;
+        let content = fs::read_to_string(&self.session_file).map_err(CLIERPError::Io)?;
 
-        let session_data: SessionData = serde_json::from_str(&content)
-            .map_err(CLIERPError::Serialization)?;
+        let session_data: SessionData =
+            serde_json::from_str(&content).map_err(CLIERPError::Serialization)?;
 
         // Check if token is expired
         let now = chrono::Utc::now().timestamp();
@@ -104,7 +102,9 @@ impl SessionManager {
             // For now, we'll use a placeholder
             let auth_service = AuthService::new(self.config.clone());
             let claims = auth_service.validate_token(&session.token)?;
-            let user_id: i32 = claims.sub.parse()
+            let user_id: i32 = claims
+                .sub
+                .parse()
                 .map_err(|_| CLIERPError::Internal("Invalid user ID in token".to_string()))?;
 
             // Get full user info from database
@@ -125,8 +125,7 @@ impl SessionManager {
     /// Clear the current session
     pub fn clear_session(&self) -> CLIERPResult<()> {
         if self.session_file.exists() {
-            fs::remove_file(&self.session_file)
-                .map_err(CLIERPError::Io)?;
+            fs::remove_file(&self.session_file).map_err(CLIERPError::Io)?;
         }
         tracing::debug!("Session cleared");
         Ok(())

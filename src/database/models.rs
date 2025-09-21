@@ -1,8 +1,10 @@
+use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
-use chrono::{NaiveDateTime, NaiveDate, NaiveTime};
 
-use super::schema::{departments, employees, users, audit_logs, attendances, payrolls, accounts, transactions};
+use super::schema::{
+    accounts, attendances, audit_logs, categories, departments, employees, payrolls, products, stock_movements, transactions, users,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Queryable, Selectable)]
 #[diesel(table_name = departments)]
@@ -345,6 +347,138 @@ impl std::fmt::Display for TransactionType {
         match self {
             TransactionType::Debit => write!(f, "debit"),
             TransactionType::Credit => write!(f, "credit"),
+        }
+    }
+}
+
+// Category models for inventory
+#[derive(Debug, Clone, Serialize, Deserialize, Queryable, Selectable)]
+#[diesel(table_name = categories)]
+pub struct Category {
+    pub id: i32,
+    pub name: String,
+    pub description: Option<String>,
+    pub parent_id: Option<i32>,
+    pub is_active: bool,
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
+}
+
+#[derive(Debug, Serialize, Deserialize, Insertable)]
+#[diesel(table_name = categories)]
+pub struct NewCategory {
+    pub name: String,
+    pub description: Option<String>,
+    pub parent_id: Option<i32>,
+    pub is_active: bool,
+}
+
+// Product models for inventory
+#[derive(Debug, Clone, Serialize, Deserialize, Queryable, Selectable)]
+#[diesel(table_name = products)]
+pub struct Product {
+    pub id: i32,
+    pub sku: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub category_id: i32,
+    pub price: i32,
+    pub cost_price: i32,
+    pub current_stock: i32,
+    pub min_stock_level: i32,
+    pub max_stock_level: Option<i32>,
+    pub unit: String,
+    pub barcode: Option<String>,
+    pub is_active: bool,
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
+}
+
+#[derive(Debug, Serialize, Deserialize, Insertable)]
+#[diesel(table_name = products)]
+pub struct NewProduct {
+    pub sku: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub category_id: i32,
+    pub price: i32,
+    pub cost_price: i32,
+    pub current_stock: i32,
+    pub min_stock_level: i32,
+    pub max_stock_level: Option<i32>,
+    pub unit: String,
+    pub barcode: Option<String>,
+    pub is_active: bool,
+}
+
+// Stock movement models for inventory tracking
+#[derive(Debug, Clone, Serialize, Deserialize, Queryable, Selectable)]
+#[diesel(table_name = stock_movements)]
+pub struct StockMovement {
+    pub id: i32,
+    pub product_id: i32,
+    pub movement_type: String,
+    pub quantity: i32,
+    pub unit_cost: Option<i32>,
+    pub reference_type: Option<String>,
+    pub reference_id: Option<i32>,
+    pub notes: Option<String>,
+    pub moved_by: Option<i32>,
+    pub movement_date: NaiveDateTime,
+}
+
+#[derive(Debug, Serialize, Deserialize, Insertable)]
+#[diesel(table_name = stock_movements)]
+pub struct NewStockMovement {
+    pub product_id: i32,
+    pub movement_type: String,
+    pub quantity: i32,
+    pub unit_cost: Option<i32>,
+    pub reference_type: Option<String>,
+    pub reference_id: Option<i32>,
+    pub notes: Option<String>,
+    pub moved_by: Option<i32>,
+}
+
+// Enums for inventory management
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum StockMovementType {
+    In,
+    Out,
+    Adjustment,
+}
+
+impl std::fmt::Display for StockMovementType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            StockMovementType::In => write!(f, "in"),
+            StockMovementType::Out => write!(f, "out"),
+            StockMovementType::Adjustment => write!(f, "adjustment"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ProductUnit {
+    Each,
+    Kilogram,
+    Liter,
+    Meter,
+    Piece,
+    Box,
+    Pack,
+}
+
+impl std::fmt::Display for ProductUnit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ProductUnit::Each => write!(f, "ea"),
+            ProductUnit::Kilogram => write!(f, "kg"),
+            ProductUnit::Liter => write!(f, "l"),
+            ProductUnit::Meter => write!(f, "m"),
+            ProductUnit::Piece => write!(f, "pc"),
+            ProductUnit::Box => write!(f, "box"),
+            ProductUnit::Pack => write!(f, "pack"),
         }
     }
 }

@@ -1,4 +1,4 @@
-use crate::core::{result::CLIERPResult, error::CLIERPError, auth::AuthenticatedUser};
+use crate::core::{auth::AuthenticatedUser, error::CLIERPError, result::CLIERPResult};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -67,7 +67,8 @@ impl WorkflowEngine {
 
     /// Register a workflow action
     pub fn register_action<A: WorkflowAction + 'static>(&mut self, action: A) {
-        self.actions.insert(action.name().to_string(), Box::new(action));
+        self.actions
+            .insert(action.name().to_string(), Box::new(action));
     }
 
     /// Start a workflow
@@ -76,8 +77,9 @@ impl WorkflowEngine {
         workflow_id: &str,
         _context: WorkflowContext,
     ) -> CLIERPResult<String> {
-        let workflow = self.workflows.get_mut(workflow_id)
-            .ok_or_else(|| CLIERPError::NotFound(format!("Workflow '{}' not found", workflow_id)))?;
+        let workflow = self.workflows.get_mut(workflow_id).ok_or_else(|| {
+            CLIERPError::NotFound(format!("Workflow '{}' not found", workflow_id))
+        })?;
 
         workflow.status = WorkflowStatus::Active;
         workflow.current_step = 0;
@@ -92,8 +94,9 @@ impl WorkflowEngine {
         workflow_id: &str,
         context: &mut WorkflowContext,
     ) -> CLIERPResult<bool> {
-        let workflow = self.workflows.get_mut(workflow_id)
-            .ok_or_else(|| CLIERPError::NotFound(format!("Workflow '{}' not found", workflow_id)))?;
+        let workflow = self.workflows.get_mut(workflow_id).ok_or_else(|| {
+            CLIERPError::NotFound(format!("Workflow '{}' not found", workflow_id))
+        })?;
 
         if workflow.current_step >= workflow.steps.len() {
             workflow.status = WorkflowStatus::Completed;
@@ -107,13 +110,14 @@ impl WorkflowEngine {
         if let Some(required_role) = &step.required_role {
             if let Some(user) = &context.user {
                 if user.role.to_string() != *required_role {
-                    return Err(CLIERPError::Authorization(
-                        format!("Step '{}' requires role: {}", step.name, required_role)
-                    ));
+                    return Err(CLIERPError::Authorization(format!(
+                        "Step '{}' requires role: {}",
+                        step.name, required_role
+                    )));
                 }
             } else {
                 return Err(CLIERPError::Authentication(
-                    "Authentication required for this step".to_string()
+                    "Authentication required for this step".to_string(),
                 ));
             }
         }
@@ -124,9 +128,10 @@ impl WorkflowEngine {
                 action.execute(context)?;
                 tracing::info!("Executed workflow step: {} in {}", step.name, workflow.name);
             } else {
-                return Err(CLIERPError::Internal(
-                    format!("Cannot execute step '{}' at this time", step.name)
-                ));
+                return Err(CLIERPError::Internal(format!(
+                    "Cannot execute step '{}' at this time",
+                    step.name
+                )));
             }
         }
 
@@ -136,7 +141,8 @@ impl WorkflowEngine {
 
     /// Get workflow status
     pub fn get_workflow_status(&self, workflow_id: &str) -> CLIERPResult<&Workflow> {
-        self.workflows.get(workflow_id)
+        self.workflows
+            .get(workflow_id)
             .ok_or_else(|| CLIERPError::NotFound(format!("Workflow '{}' not found", workflow_id)))
     }
 
@@ -147,8 +153,9 @@ impl WorkflowEngine {
 
     /// Pause a workflow
     pub fn pause_workflow(&mut self, workflow_id: &str) -> CLIERPResult<()> {
-        let workflow = self.workflows.get_mut(workflow_id)
-            .ok_or_else(|| CLIERPError::NotFound(format!("Workflow '{}' not found", workflow_id)))?;
+        let workflow = self.workflows.get_mut(workflow_id).ok_or_else(|| {
+            CLIERPError::NotFound(format!("Workflow '{}' not found", workflow_id))
+        })?;
 
         workflow.status = WorkflowStatus::Paused;
         tracing::info!("Paused workflow: {} ({})", workflow.name, workflow.id);
@@ -157,8 +164,9 @@ impl WorkflowEngine {
 
     /// Resume a workflow
     pub fn resume_workflow(&mut self, workflow_id: &str) -> CLIERPResult<()> {
-        let workflow = self.workflows.get_mut(workflow_id)
-            .ok_or_else(|| CLIERPError::NotFound(format!("Workflow '{}' not found", workflow_id)))?;
+        let workflow = self.workflows.get_mut(workflow_id).ok_or_else(|| {
+            CLIERPError::NotFound(format!("Workflow '{}' not found", workflow_id))
+        })?;
 
         workflow.status = WorkflowStatus::Active;
         tracing::info!("Resumed workflow: {} ({})", workflow.name, workflow.id);

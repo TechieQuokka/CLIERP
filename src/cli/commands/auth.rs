@@ -1,4 +1,8 @@
-use crate::core::{result::CLIERPResult, command::Command, auth::{AuthenticatedUser, AuthService}};
+use crate::core::{
+    auth::{AuthService, AuthenticatedUser},
+    command::Command,
+    result::CLIERPResult,
+};
 
 pub struct AuthLoginCommand {
     auth_service: AuthService,
@@ -11,7 +15,11 @@ impl AuthLoginCommand {
 }
 
 impl Command for AuthLoginCommand {
-    fn execute(&self, _args: &dyn std::any::Any, _user: Option<&AuthenticatedUser>) -> CLIERPResult<()> {
+    fn execute(
+        &self,
+        _args: &dyn std::any::Any,
+        _user: Option<&AuthenticatedUser>,
+    ) -> CLIERPResult<()> {
         println!("Login command executed!");
         Ok(())
     }
@@ -44,7 +52,11 @@ impl AuthLogoutCommand {
 }
 
 impl Command for AuthLogoutCommand {
-    fn execute(&self, _args: &dyn std::any::Any, _user: Option<&AuthenticatedUser>) -> CLIERPResult<()> {
+    fn execute(
+        &self,
+        _args: &dyn std::any::Any,
+        _user: Option<&AuthenticatedUser>,
+    ) -> CLIERPResult<()> {
         println!("Logout command executed!");
         Ok(())
     }
@@ -77,7 +89,11 @@ impl AuthWhoamiCommand {
 }
 
 impl Command for AuthWhoamiCommand {
-    fn execute(&self, _args: &dyn std::any::Any, user: Option<&AuthenticatedUser>) -> CLIERPResult<()> {
+    fn execute(
+        &self,
+        _args: &dyn std::any::Any,
+        user: Option<&AuthenticatedUser>,
+    ) -> CLIERPResult<()> {
         if let Some(user) = user {
             println!("Current user: {}", user.username);
         } else {

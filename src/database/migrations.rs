@@ -13,8 +13,9 @@ pub fn run_migrations(connection: &mut SqliteConnection) -> CLIERPResult<()> {
             manager_id INTEGER REFERENCES employees(id),
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )"
-    ).execute(connection)?;
+        )",
+    )
+    .execute(connection)?;
 
     // Create employees table
     diesel::sql_query(
@@ -61,15 +62,83 @@ pub fn run_migrations(connection: &mut SqliteConnection) -> CLIERPResult<()> {
             old_values TEXT,
             new_values TEXT,
             changed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )"
-    ).execute(connection)?;
+        )",
+    )
+    .execute(connection)?;
+
+    // Create categories table for inventory
+    diesel::sql_query(
+        "CREATE TABLE IF NOT EXISTS categories (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            description TEXT,
+            parent_id INTEGER REFERENCES categories(id),
+            is_active BOOLEAN NOT NULL DEFAULT TRUE,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )",
+    )
+    .execute(connection)?;
+
+    // Create products table for inventory
+    diesel::sql_query(
+        "CREATE TABLE IF NOT EXISTS products (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sku TEXT NOT NULL UNIQUE,
+            name TEXT NOT NULL,
+            description TEXT,
+            category_id INTEGER NOT NULL REFERENCES categories(id),
+            price INTEGER NOT NULL DEFAULT 0,
+            cost_price INTEGER NOT NULL DEFAULT 0,
+            current_stock INTEGER NOT NULL DEFAULT 0,
+            min_stock_level INTEGER NOT NULL DEFAULT 0,
+            max_stock_level INTEGER,
+            unit TEXT NOT NULL DEFAULT 'ea',
+            barcode TEXT,
+            is_active BOOLEAN NOT NULL DEFAULT TRUE,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )",
+    )
+    .execute(connection)?;
+
+    // Create stock_movements table for inventory tracking
+    diesel::sql_query(
+        "CREATE TABLE IF NOT EXISTS stock_movements (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_id INTEGER NOT NULL REFERENCES products(id),
+            movement_type TEXT NOT NULL CHECK (movement_type IN ('in', 'out', 'adjustment')),
+            quantity INTEGER NOT NULL,
+            unit_cost INTEGER,
+            reference_type TEXT,
+            reference_id INTEGER,
+            notes TEXT,
+            moved_by INTEGER REFERENCES users(id),
+            movement_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )",
+    )
+    .execute(connection)?;
 
     // Create indexes for better performance
-    diesel::sql_query("CREATE INDEX IF NOT EXISTS idx_employees_department_id ON employees(department_id)").execute(connection)?;
-    diesel::sql_query("CREATE INDEX IF NOT EXISTS idx_employees_status ON employees(status)").execute(connection)?;
-    diesel::sql_query("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)").execute(connection)?;
-    diesel::sql_query("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)").execute(connection)?;
+    diesel::sql_query(
+        "CREATE INDEX IF NOT EXISTS idx_employees_department_id ON employees(department_id)",
+    )
+    .execute(connection)?;
+    diesel::sql_query("CREATE INDEX IF NOT EXISTS idx_employees_status ON employees(status)")
+        .execute(connection)?;
+    diesel::sql_query("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
+        .execute(connection)?;
+    diesel::sql_query("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)")
+        .execute(connection)?;
     diesel::sql_query("CREATE INDEX IF NOT EXISTS idx_audit_logs_table_record ON audit_logs(table_name, record_id)").execute(connection)?;
+
+    // Create indexes for inventory tables
+    diesel::sql_query("CREATE INDEX IF NOT EXISTS idx_categories_parent_id ON categories(parent_id)").execute(connection)?;
+    diesel::sql_query("CREATE INDEX IF NOT EXISTS idx_products_category_id ON products(category_id)").execute(connection)?;
+    diesel::sql_query("CREATE INDEX IF NOT EXISTS idx_products_sku ON products(sku)").execute(connection)?;
+    diesel::sql_query("CREATE INDEX IF NOT EXISTS idx_products_stock_level ON products(current_stock, min_stock_level)").execute(connection)?;
+    diesel::sql_query("CREATE INDEX IF NOT EXISTS idx_stock_movements_product_id ON stock_movements(product_id)").execute(connection)?;
+    diesel::sql_query("CREATE INDEX IF NOT EXISTS idx_stock_movements_date ON stock_movements(movement_date)").execute(connection)?;
 
     // Insert default data
     insert_default_data(connection)?;
@@ -88,8 +157,20 @@ fn insert_default_data(connection: &mut SqliteConnection) -> CLIERPResult<()> {
          ('개발팀', '소프트웨어 개발'),
          ('영업팀', '영업 및 마케팅'),
          ('인사팀', '인사 관리'),
-         ('회계팀', '회계 및 재무')"
-    ).execute(connection)?;
+         ('회계팀', '회계 및 재무')",
+    )
+    .execute(connection)?;
+
+    // Insert default categories
+    diesel::sql_query(
+        "INSERT OR IGNORE INTO categories (name, description) VALUES
+         ('전자제품', '전자제품 및 디지털 기기'),
+         ('사무용품', '사무실에서 사용하는 용품'),
+         ('가구', '사무용 가구'),
+         ('소프트웨어', '소프트웨어 제품'),
+         ('기타', '기타 제품')",
+    )
+    .execute(connection)?;
 
     tracing::info!("Default data inserted successfully");
     Ok(())

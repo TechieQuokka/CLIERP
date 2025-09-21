@@ -1,4 +1,4 @@
-use crate::core::{result::CLIERPResult, command::Command, auth::AuthenticatedUser};
+use crate::core::{auth::AuthenticatedUser, command::Command, result::CLIERPResult};
 use crate::database::connection::DatabaseManager;
 use crate::modules::hr::department::{DepartmentService, DepartmentWithEmployeeCount};
 use crate::utils::formatting::format_table;
@@ -21,7 +21,11 @@ impl HrDeptListCommand {
 }
 
 impl Command for HrDeptListCommand {
-    fn execute(&self, _args: &dyn std::any::Any, user: Option<&AuthenticatedUser>) -> CLIERPResult<()> {
+    fn execute(
+        &self,
+        _args: &dyn std::any::Any,
+        user: Option<&AuthenticatedUser>,
+    ) -> CLIERPResult<()> {
         let _user = user.ok_or_else(|| crate::core::error::CLIERPError::AuthenticationRequired)?;
 
         let db_manager = DatabaseManager::new()?;
@@ -60,12 +64,20 @@ pub struct HrDeptAddCommand {
 
 impl HrDeptAddCommand {
     pub fn new(name: String, description: Option<String>, manager_id: Option<i32>) -> Self {
-        Self { name, description, manager_id }
+        Self {
+            name,
+            description,
+            manager_id,
+        }
     }
 }
 
 impl Command for HrDeptAddCommand {
-    fn execute(&self, _args: &dyn std::any::Any, user: Option<&AuthenticatedUser>) -> CLIERPResult<()> {
+    fn execute(
+        &self,
+        _args: &dyn std::any::Any,
+        user: Option<&AuthenticatedUser>,
+    ) -> CLIERPResult<()> {
         let _user = user.ok_or_else(|| crate::core::error::CLIERPError::AuthenticationRequired)?;
 
         let db_manager = DatabaseManager::new()?;
@@ -85,7 +97,10 @@ impl Command for HrDeptAddCommand {
         if let Some(desc) = &department.description {
             println!("Description: {}", desc);
         }
-        println!("Created: {}", department.created_at.format("%Y-%m-%d %H:%M:%S"));
+        println!(
+            "Created: {}",
+            department.created_at.format("%Y-%m-%d %H:%M:%S")
+        );
 
         Ok(())
     }
@@ -111,13 +126,27 @@ pub struct HrDeptUpdateCommand {
 }
 
 impl HrDeptUpdateCommand {
-    pub fn new(id: i32, name: Option<String>, description: Option<String>, manager_id: Option<i32>) -> Self {
-        Self { id, name, description, manager_id }
+    pub fn new(
+        id: i32,
+        name: Option<String>,
+        description: Option<String>,
+        manager_id: Option<i32>,
+    ) -> Self {
+        Self {
+            id,
+            name,
+            description,
+            manager_id,
+        }
     }
 }
 
 impl Command for HrDeptUpdateCommand {
-    fn execute(&self, _args: &dyn std::any::Any, user: Option<&AuthenticatedUser>) -> CLIERPResult<()> {
+    fn execute(
+        &self,
+        _args: &dyn std::any::Any,
+        user: Option<&AuthenticatedUser>,
+    ) -> CLIERPResult<()> {
         let _user = user.ok_or_else(|| crate::core::error::CLIERPError::AuthenticationRequired)?;
 
         let db_manager = DatabaseManager::new()?;
@@ -138,7 +167,10 @@ impl Command for HrDeptUpdateCommand {
         if let Some(desc) = &department.description {
             println!("Description: {}", desc);
         }
-        println!("Updated: {}", department.updated_at.format("%Y-%m-%d %H:%M:%S"));
+        println!(
+            "Updated: {}",
+            department.updated_at.format("%Y-%m-%d %H:%M:%S")
+        );
 
         Ok(())
     }
@@ -167,7 +199,11 @@ impl HrDeptDeleteCommand {
 }
 
 impl Command for HrDeptDeleteCommand {
-    fn execute(&self, _args: &dyn std::any::Any, user: Option<&AuthenticatedUser>) -> CLIERPResult<()> {
+    fn execute(
+        &self,
+        _args: &dyn std::any::Any,
+        user: Option<&AuthenticatedUser>,
+    ) -> CLIERPResult<()> {
         let _user = user.ok_or_else(|| crate::core::error::CLIERPError::AuthenticationRequired)?;
 
         let db_manager = DatabaseManager::new()?;
@@ -207,7 +243,11 @@ impl HrEmployeeListCommand {
 }
 
 impl Command for HrEmployeeListCommand {
-    fn execute(&self, _args: &dyn std::any::Any, user: Option<&AuthenticatedUser>) -> CLIERPResult<()> {
+    fn execute(
+        &self,
+        _args: &dyn std::any::Any,
+        user: Option<&AuthenticatedUser>,
+    ) -> CLIERPResult<()> {
         use crate::modules::hr::employee::EmployeeService;
 
         let _user = user.ok_or_else(|| crate::core::error::CLIERPError::AuthenticationRequired)?;
@@ -276,7 +316,11 @@ impl HrEmployeeAddCommand {
 }
 
 impl Command for HrEmployeeAddCommand {
-    fn execute(&self, _args: &dyn std::any::Any, user: Option<&AuthenticatedUser>) -> CLIERPResult<()> {
+    fn execute(
+        &self,
+        _args: &dyn std::any::Any,
+        user: Option<&AuthenticatedUser>,
+    ) -> CLIERPResult<()> {
         use crate::modules::hr::employee::EmployeeService;
 
         let _user = user.ok_or_else(|| crate::core::error::CLIERPError::AuthenticationRequired)?;
@@ -305,9 +349,15 @@ impl Command for HrEmployeeAddCommand {
             println!("Email: {}", email);
         }
         println!("Position: {}", employee.position);
-        println!("Salary: {}", crate::utils::formatting::format_currency(employee.salary));
+        println!(
+            "Salary: {}",
+            crate::utils::formatting::format_currency(employee.salary)
+        );
         println!("Hire Date: {}", employee.hire_date);
-        println!("Created: {}", employee.created_at.format("%Y-%m-%d %H:%M:%S"));
+        println!(
+            "Created: {}",
+            employee.created_at.format("%Y-%m-%d %H:%M:%S")
+        );
 
         Ok(())
     }
@@ -337,7 +387,11 @@ impl HrEmployeeShowCommand {
 }
 
 impl Command for HrEmployeeShowCommand {
-    fn execute(&self, _args: &dyn std::any::Any, user: Option<&AuthenticatedUser>) -> CLIERPResult<()> {
+    fn execute(
+        &self,
+        _args: &dyn std::any::Any,
+        user: Option<&AuthenticatedUser>,
+    ) -> CLIERPResult<()> {
         use crate::modules::hr::employee::EmployeeService;
 
         let _user = user.ok_or_else(|| crate::core::error::CLIERPError::AuthenticationRequired)?;
@@ -352,7 +406,7 @@ impl Command for HrEmployeeShowCommand {
             emp_service.get_employee_by_code(&mut conn, emp_code)?
         } else {
             return Err(crate::core::error::CLIERPError::ValidationError(
-                "Either --id or --code must be provided".to_string()
+                "Either --id or --code must be provided".to_string(),
             ));
         };
 
@@ -417,7 +471,11 @@ impl HrEmployeeUpdateCommand {
 }
 
 impl Command for HrEmployeeUpdateCommand {
-    fn execute(&self, _args: &dyn std::any::Any, user: Option<&AuthenticatedUser>) -> CLIERPResult<()> {
+    fn execute(
+        &self,
+        _args: &dyn std::any::Any,
+        user: Option<&AuthenticatedUser>,
+    ) -> CLIERPResult<()> {
         use crate::modules::hr::employee::EmployeeService;
 
         let _user = user.ok_or_else(|| crate::core::error::CLIERPError::AuthenticationRequired)?;
@@ -448,7 +506,10 @@ impl Command for HrEmployeeUpdateCommand {
         }
         println!("Position: {}", employee.position);
         println!("Status: {}", employee.status);
-        println!("Updated: {}", employee.updated_at.format("%Y-%m-%d %H:%M:%S"));
+        println!(
+            "Updated: {}",
+            employee.updated_at.format("%Y-%m-%d %H:%M:%S")
+        );
 
         Ok(())
     }
@@ -477,7 +538,11 @@ impl HrEmployeeSearchCommand {
 }
 
 impl Command for HrEmployeeSearchCommand {
-    fn execute(&self, _args: &dyn std::any::Any, user: Option<&AuthenticatedUser>) -> CLIERPResult<()> {
+    fn execute(
+        &self,
+        _args: &dyn std::any::Any,
+        user: Option<&AuthenticatedUser>,
+    ) -> CLIERPResult<()> {
         use crate::modules::hr::employee::EmployeeService;
 
         let _user = user.ok_or_else(|| crate::core::error::CLIERPError::AuthenticationRequired)?;
@@ -522,7 +587,11 @@ impl HrEmployeeDeleteCommand {
 }
 
 impl Command for HrEmployeeDeleteCommand {
-    fn execute(&self, _args: &dyn std::any::Any, user: Option<&AuthenticatedUser>) -> CLIERPResult<()> {
+    fn execute(
+        &self,
+        _args: &dyn std::any::Any,
+        user: Option<&AuthenticatedUser>,
+    ) -> CLIERPResult<()> {
         use crate::modules::hr::employee::EmployeeService;
 
         let _user = user.ok_or_else(|| crate::core::error::CLIERPError::AuthenticationRequired)?;
@@ -565,7 +634,11 @@ impl HrDeptExportCommand {
 }
 
 impl Command for HrDeptExportCommand {
-    fn execute(&self, _args: &dyn std::any::Any, user: Option<&AuthenticatedUser>) -> CLIERPResult<()> {
+    fn execute(
+        &self,
+        _args: &dyn std::any::Any,
+        user: Option<&AuthenticatedUser>,
+    ) -> CLIERPResult<()> {
         use crate::utils::export::ExportService;
 
         let _user = user.ok_or_else(|| crate::core::error::CLIERPError::AuthenticationRequired)?;
@@ -591,7 +664,15 @@ impl Command for HrDeptExportCommand {
 
         match self.format.to_lowercase().as_str() {
             "csv" => {
-                let headers = &["ID", "Name", "Description", "Manager ID", "Employee Count", "Created", "Updated"];
+                let headers = &[
+                    "ID",
+                    "Name",
+                    "Description",
+                    "Manager ID",
+                    "Employee Count",
+                    "Created",
+                    "Updated",
+                ];
                 export_service.export_to_csv(&departments, headers, &file_path)?;
             }
             "json" => {
@@ -599,7 +680,7 @@ impl Command for HrDeptExportCommand {
             }
             _ => {
                 return Err(crate::core::error::CLIERPError::ValidationError(
-                    "Unsupported format. Use 'csv' or 'json'.".to_string()
+                    "Unsupported format. Use 'csv' or 'json'.".to_string(),
                 ));
             }
         }
@@ -631,12 +712,20 @@ pub struct HrEmployeeExportCommand {
 
 impl HrEmployeeExportCommand {
     pub fn new(format: String, output: Option<String>, department_id: Option<i32>) -> Self {
-        Self { format, output, department_id }
+        Self {
+            format,
+            output,
+            department_id,
+        }
     }
 }
 
 impl Command for HrEmployeeExportCommand {
-    fn execute(&self, _args: &dyn std::any::Any, user: Option<&AuthenticatedUser>) -> CLIERPResult<()> {
+    fn execute(
+        &self,
+        _args: &dyn std::any::Any,
+        user: Option<&AuthenticatedUser>,
+    ) -> CLIERPResult<()> {
         use crate::modules::hr::employee::EmployeeService;
         use crate::utils::export::ExportService;
 
@@ -673,8 +762,18 @@ impl Command for HrEmployeeExportCommand {
         match self.format.to_lowercase().as_str() {
             "csv" => {
                 let headers = &[
-                    "ID", "Code", "Name", "Email", "Phone", "Department",
-                    "Position", "Salary", "Status", "Hire Date", "Created", "Updated"
+                    "ID",
+                    "Code",
+                    "Name",
+                    "Email",
+                    "Phone",
+                    "Department",
+                    "Position",
+                    "Salary",
+                    "Status",
+                    "Hire Date",
+                    "Created",
+                    "Updated",
                 ];
                 export_service.export_to_csv(&employees, headers, &file_path)?;
             }
@@ -683,7 +782,7 @@ impl Command for HrEmployeeExportCommand {
             }
             _ => {
                 return Err(crate::core::error::CLIERPError::ValidationError(
-                    "Unsupported format. Use 'csv' or 'json'.".to_string()
+                    "Unsupported format. Use 'csv' or 'json'.".to_string(),
                 ));
             }
         }
@@ -710,17 +809,36 @@ impl Command for HrEmployeeExportCommand {
 // Helper functions
 
 fn display_departments_table(departments: &[DepartmentWithEmployeeCount]) {
-    let headers = vec!["ID", "Name", "Description", "Manager ID", "Employees", "Created"];
+    let headers = vec![
+        "ID",
+        "Name",
+        "Description",
+        "Manager ID",
+        "Employees",
+        "Created",
+    ];
     let rows: Vec<Vec<String>> = departments
         .iter()
         .map(|dept_with_count| {
             vec![
                 dept_with_count.department.id.to_string(),
                 dept_with_count.department.name.clone(),
-                dept_with_count.department.description.clone().unwrap_or_else(|| "-".to_string()),
-                dept_with_count.department.manager_id.map(|id| id.to_string()).unwrap_or_else(|| "-".to_string()),
+                dept_with_count
+                    .department
+                    .description
+                    .clone()
+                    .unwrap_or_else(|| "-".to_string()),
+                dept_with_count
+                    .department
+                    .manager_id
+                    .map(|id| id.to_string())
+                    .unwrap_or_else(|| "-".to_string()),
                 dept_with_count.employee_count.to_string(),
-                dept_with_count.department.created_at.format("%Y-%m-%d").to_string(),
+                dept_with_count
+                    .department
+                    .created_at
+                    .format("%Y-%m-%d")
+                    .to_string(),
             ]
         })
         .collect();
@@ -729,7 +847,17 @@ fn display_departments_table(departments: &[DepartmentWithEmployeeCount]) {
 }
 
 fn display_employees_table(employees: &[crate::modules::hr::employee::EmployeeWithDepartment]) {
-    let headers = vec!["ID", "Code", "Name", "Email", "Department", "Position", "Salary", "Status", "Hire Date"];
+    let headers = vec![
+        "ID",
+        "Code",
+        "Name",
+        "Email",
+        "Department",
+        "Position",
+        "Salary",
+        "Status",
+        "Hire Date",
+    ];
     let rows: Vec<Vec<String>> = employees
         .iter()
         .map(|emp_with_dept| {
@@ -737,12 +865,20 @@ fn display_employees_table(employees: &[crate::modules::hr::employee::EmployeeWi
                 emp_with_dept.employee.id.to_string(),
                 emp_with_dept.employee.employee_code.clone(),
                 emp_with_dept.employee.name.clone(),
-                emp_with_dept.employee.email.clone().unwrap_or_else(|| "-".to_string()),
+                emp_with_dept
+                    .employee
+                    .email
+                    .clone()
+                    .unwrap_or_else(|| "-".to_string()),
                 emp_with_dept.department.name.clone(),
                 emp_with_dept.employee.position.clone(),
                 crate::utils::formatting::format_currency(emp_with_dept.employee.salary),
                 emp_with_dept.employee.status.clone(),
-                emp_with_dept.employee.hire_date.format("%Y-%m-%d").to_string(),
+                emp_with_dept
+                    .employee
+                    .hire_date
+                    .format("%Y-%m-%d")
+                    .to_string(),
             ]
         })
         .collect();
@@ -765,11 +901,32 @@ fn display_employee_detail(emp_with_dept: &crate::modules::hr::employee::Employe
         println!("Phone: {}", phone);
     }
 
-    println!("Department: {} (ID: {})", emp_with_dept.department.name, emp_with_dept.department.id);
+    println!(
+        "Department: {} (ID: {})",
+        emp_with_dept.department.name, emp_with_dept.department.id
+    );
     println!("Position: {}", emp_with_dept.employee.position);
-    println!("Salary: {}", crate::utils::formatting::format_currency(emp_with_dept.employee.salary));
+    println!(
+        "Salary: {}",
+        crate::utils::formatting::format_currency(emp_with_dept.employee.salary)
+    );
     println!("Status: {}", emp_with_dept.employee.status);
-    println!("Hire Date: {}", emp_with_dept.employee.hire_date.format("%Y-%m-%d"));
-    println!("Created: {}", emp_with_dept.employee.created_at.format("%Y-%m-%d %H:%M:%S"));
-    println!("Updated: {}", emp_with_dept.employee.updated_at.format("%Y-%m-%d %H:%M:%S"));
+    println!(
+        "Hire Date: {}",
+        emp_with_dept.employee.hire_date.format("%Y-%m-%d")
+    );
+    println!(
+        "Created: {}",
+        emp_with_dept
+            .employee
+            .created_at
+            .format("%Y-%m-%d %H:%M:%S")
+    );
+    println!(
+        "Updated: {}",
+        emp_with_dept
+            .employee
+            .updated_at
+            .format("%Y-%m-%d %H:%M:%S")
+    );
 }

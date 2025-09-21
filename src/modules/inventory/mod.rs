@@ -1,1 +1,5 @@
-// Inventory module placeholder - will be implemented in Phase 3
+pub mod category;
+pub mod product;
+
+pub use category::*;
+pub use product::*;

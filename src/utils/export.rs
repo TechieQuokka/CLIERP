@@ -1,9 +1,9 @@
+use crate::core::error::CLIERPError;
+use crate::core::result::CLIERPResult;
+use serde::Serialize;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
-use crate::core::result::CLIERPResult;
-use crate::core::error::CLIERPError;
-use serde::Serialize;
 
 #[derive(Default)]
 pub struct ExportService;
@@ -14,12 +14,18 @@ impl ExportService {
     }
 
     /// Export data to CSV format
-    pub fn export_to_csv<T>(&self, data: &[T], headers: &[&str], file_path: &str) -> CLIERPResult<()>
+    pub fn export_to_csv<T>(
+        &self,
+        data: &[T],
+        headers: &[&str],
+        file_path: &str,
+    ) -> CLIERPResult<()>
     where
         T: CsvSerializable,
     {
-        let mut file = File::create(file_path)
-            .map_err(|e| CLIERPError::IoError(format!("Failed to create file {}: {}", file_path, e)))?;
+        let mut file = File::create(file_path).map_err(|e| {
+            CLIERPError::IoError(format!("Failed to create file {}: {}", file_path, e))
+        })?;
 
         // Write headers
         writeln!(file, "{}", headers.join(","))
@@ -40,11 +46,13 @@ impl ExportService {
     where
         T: Serialize,
     {
-        let json_string = serde_json::to_string_pretty(data)
-            .map_err(|e| CLIERPError::SerializationError(format!("Failed to serialize to JSON: {}", e)))?;
+        let json_string = serde_json::to_string_pretty(data).map_err(|e| {
+            CLIERPError::SerializationError(format!("Failed to serialize to JSON: {}", e))
+        })?;
 
-        std::fs::write(file_path, json_string)
-            .map_err(|e| CLIERPError::IoError(format!("Failed to write JSON file {}: {}", file_path, e)))?;
+        std::fs::write(file_path, json_string).map_err(|e| {
+            CLIERPError::IoError(format!("Failed to write JSON file {}: {}", file_path, e))
+        })?;
 
         Ok(())
     }
@@ -70,8 +78,9 @@ impl ExportService {
     pub fn prepare_file_path(file_path: &str) -> CLIERPResult<()> {
         if let Some(parent) = Path::new(file_path).parent() {
             if !parent.exists() {
-                std::fs::create_dir_all(parent)
-                    .map_err(|e| CLIERPError::IoError(format!("Failed to create directory: {}", e)))?;
+                std::fs::create_dir_all(parent).map_err(|e| {
+                    CLIERPError::IoError(format!("Failed to create directory: {}", e))
+                })?;
             }
         }
         Ok(())

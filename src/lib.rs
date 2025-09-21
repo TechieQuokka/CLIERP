@@ -4,11 +4,11 @@
 //! Built with Rust for performance, safety, and reliability.
 
 pub mod cli;
+pub mod config;
 pub mod core;
 pub mod database;
 pub mod modules;
 pub mod utils;
-pub mod config;
 
 // Re-export main components for easier access
 pub use cli::app::CLIApp;

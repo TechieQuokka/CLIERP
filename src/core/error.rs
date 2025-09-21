@@ -64,4 +64,7 @@ pub enum CLIERPError {
 
     #[error("Internal error: {0}")]
     Internal(String),
+
+    #[error("Invalid input: {0}")]
+    InvalidInput(String),
 }

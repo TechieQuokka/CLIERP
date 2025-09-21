@@ -1,11 +1,15 @@
-use crate::core::{result::CLIERPResult, error::CLIERPError, auth::AuthenticatedUser};
+use crate::core::{auth::AuthenticatedUser, error::CLIERPError, result::CLIERPResult};
 use clap::{Parser, Subcommand};
 use std::collections::HashMap;
 
 /// Trait for implementing CLI commands
 pub trait Command {
     /// Execute the command with the given arguments
-    fn execute(&self, args: &dyn std::any::Any, user: Option<&AuthenticatedUser>) -> CLIERPResult<()>;
+    fn execute(
+        &self,
+        args: &dyn std::any::Any,
+        user: Option<&AuthenticatedUser>,
+    ) -> CLIERPResult<()>;
 
     /// Get command name
     fn name(&self) -> &'static str;
@@ -38,7 +42,8 @@ impl CommandRegistry {
 
     /// Register a new command
     pub fn register<C: Command + 'static>(&mut self, command: C) {
-        self.commands.insert(command.name().to_string(), Box::new(command));
+        self.commands
+            .insert(command.name().to_string(), Box::new(command));
     }
 
     /// Get a command by name
@@ -58,18 +63,25 @@ impl CommandRegistry {
         args: &dyn std::any::Any,
         user: Option<&AuthenticatedUser>,
     ) -> CLIERPResult<()> {
-        let command = self.get(name)
+        let command = self
+            .get(name)
             .ok_or_else(|| CLIERPError::NotFound(format!("Command '{}' not found", name)))?;
 
         // Check authentication requirements
         if command.requires_auth() && user.is_none() {
-            return Err(CLIERPError::Authentication("Authentication required".to_string()));
+            return Err(CLIERPError::Authentication(
+                "Authentication required".to_string(),
+            ));
         }
 
         // Check role requirements
         if let (Some(required_role), Some(user)) = (command.required_role(), user) {
             // Implementation of role checking logic would go here
-            tracing::debug!("Checking role requirement: {} for user: {}", required_role, user.username);
+            tracing::debug!(
+                "Checking role requirement: {} for user: {}",
+                required_role,
+                user.username
+            );
         }
 
         command.execute(args, user)
@@ -416,24 +428,119 @@ pub enum InvCommands {
 pub enum ProductCommands {
     /// Add product
     Add {
-        /// Product code
+        /// Product SKU
         #[arg(short, long)]
-        code: String,
+        sku: String,
         /// Product name
         #[arg(short, long)]
         name: String,
-        /// Price
+        /// Category ID
+        #[arg(short, long)]
+        category_id: i32,
+        /// Price (in cents)
         #[arg(short, long)]
         price: i32,
+        /// Cost price (in cents)
+        #[arg(long)]
+        cost_price: Option<i32>,
+        /// Initial stock
+        #[arg(long)]
+        stock: Option<i32>,
+        /// Minimum stock level
+        #[arg(long)]
+        min_stock: Option<i32>,
+        /// Maximum stock level
+        #[arg(long)]
+        max_stock: Option<i32>,
+        /// Unit of measurement
+        #[arg(short, long)]
+        unit: Option<String>,
+        /// Description
+        #[arg(short, long)]
+        description: Option<String>,
+        /// Barcode
+        #[arg(short, long)]
+        barcode: Option<String>,
     },
     /// List products
-    List,
+    List {
+        /// Category ID filter
+        #[arg(long)]
+        category_id: Option<i32>,
+        /// Search term
+        #[arg(short, long)]
+        search: Option<String>,
+        /// Show only low stock
+        #[arg(long)]
+        low_stock: Option<bool>,
+        /// Include inactive products
+        #[arg(long)]
+        active: Option<bool>,
+        /// Page number
+        #[arg(long)]
+        page: Option<usize>,
+        /// Items per page
+        #[arg(long)]
+        per_page: Option<i64>,
+    },
+    /// Show product details
+    Show {
+        /// Product ID
+        #[arg(short, long)]
+        id: Option<i32>,
+        /// Product SKU
+        #[arg(short, long)]
+        sku: Option<String>,
+    },
 }
 
 #[derive(Debug, Subcommand)]
 pub enum StockCommands {
+    /// Add stock (stock in)
+    In {
+        /// Product ID
+        #[arg(long)]
+        product_id: Option<i32>,
+        /// Product SKU
+        #[arg(short, long)]
+        sku: Option<String>,
+        /// Quantity to add
+        #[arg(short, long)]
+        quantity: i32,
+        /// Unit cost
+        #[arg(long)]
+        unit_cost: Option<i32>,
+        /// Reference information
+        #[arg(short, long)]
+        reference: Option<String>,
+        /// Notes
+        #[arg(long)]
+        notes: Option<String>,
+    },
+    /// Remove stock (stock out)
+    Out {
+        /// Product ID
+        #[arg(long)]
+        product_id: Option<i32>,
+        /// Product SKU
+        #[arg(short, long)]
+        sku: Option<String>,
+        /// Quantity to remove
+        #[arg(short, long)]
+        quantity: i32,
+        /// Reference information
+        #[arg(short, long)]
+        reference: Option<String>,
+        /// Notes
+        #[arg(long)]
+        notes: Option<String>,
+    },
     /// Check stock status
-    Status,
+    Check {
+        /// Show only low stock products
+        #[arg(long)]
+        low_stock: bool,
+    },
     /// Update stock
     Update {
         /// Product ID

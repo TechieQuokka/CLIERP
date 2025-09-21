@@ -61,6 +61,16 @@ pub fn format_percentage(value: f64) -> String {
     format!("{:.1}%", value)
 }
 
+/// Format datetime to readable string
+pub fn format_datetime(datetime: &chrono::NaiveDateTime) -> String {
+    datetime.format("%Y-%m-%d %H:%M:%S").to_string()
+}
+
+/// Format date to readable string
+pub fn format_date(date: &chrono::NaiveDate) -> String {
+    date.format("%Y-%m-%d").to_string()
+}
+
 /// Format table from headers and rows
 pub fn format_table(headers: &[&str], rows: &[Vec<String>]) {
     if rows.is_empty() {

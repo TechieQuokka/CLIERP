@@ -1,8 +1,12 @@
-use diesel::prelude::*;
-use crate::core::result::CLIERPResult;
 use crate::core::error::CLIERPError;
-use crate::database::{models::{Employee, NewEmployee, Department}, schema::{employees, departments}, connection::DatabaseConnection};
-use chrono::{Utc, NaiveDate};
+use crate::core::result::CLIERPResult;
+use crate::database::{
+    connection::DatabaseConnection,
+    models::{Department, Employee, NewEmployee},
+    schema::{departments, employees},
+};
+use chrono::{NaiveDate, Utc};
+use diesel::prelude::*;
 
 #[derive(Debug)]
 pub struct CreateEmployeeRequest {
@@ -65,9 +69,12 @@ impl EmployeeService {
             .filter(departments::id.eq(request.department_id))
             .first::<Department>(conn)
             .optional()?
-            .ok_or_else(|| CLIERPError::ValidationError(
-                format!("Department with ID {} not found", request.department_id)
-            ))?;
+            .ok_or_else(|| {
+                CLIERPError::ValidationError(format!(
+                    "Department with ID {} not found",
+                    request.department_id
+                ))
+            })?;
 
         // Check if email already exists (if provided)
         if let Some(ref email_val) = request.email {
@@ -77,9 +84,10 @@ impl EmployeeService {
                 .optional()?;
 
             if existing.is_some() {
-                return Err(CLIERPError::ValidationError(
-                    format!("Employee with email '{}' already exists", email_val)
-                ));
+                return Err(CLIERPError::ValidationError(format!(
+                    "Employee with email '{}' already exists",
+                    email_val
+                )));
             }
         }
 
@@ -111,7 +119,10 @@ impl EmployeeService {
     }
 
     /// List all employees
-    pub fn list_employees(&self, conn: &mut DatabaseConnection) -> CLIERPResult<Vec<EmployeeWithDepartment>> {
+    pub fn list_employees(
+        &self,
+        conn: &mut DatabaseConnection,
+    ) -> CLIERPResult<Vec<EmployeeWithDepartment>> {
         use crate::database::schema::employees::dsl::*;
 
         let emp_list = employees
@@ -132,7 +143,11 @@ impl EmployeeService {
     }
 
     /// List employees by department
-    pub fn list_employees_by_department(&self, conn: &mut DatabaseConnection, dept_id: i32) -> CLIERPResult<Vec<EmployeeWithDepartment>> {
+    pub fn list_employees_by_department(
+        &self,
+        conn: &mut DatabaseConnection,
+        dept_id: i32,
+    ) -> CLIERPResult<Vec<EmployeeWithDepartment>> {
         use crate::database::schema::employees::dsl::*;
 
         let emp_list = employees
@@ -154,7 +169,11 @@ impl EmployeeService {
     }
 
     /// Get employee by ID
-    pub fn get_employee_by_id(&self, conn: &mut DatabaseConnection, emp_id: i32) -> CLIERPResult<Option<EmployeeWithDepartment>> {
+    pub fn get_employee_by_id(
+        &self,
+        conn: &mut DatabaseConnection,
+        emp_id: i32,
+    ) -> CLIERPResult<Option<EmployeeWithDepartment>> {
         use crate::database::schema::employees::dsl::*;
 
         let result = employees
@@ -174,7 +193,11 @@ impl EmployeeService {
     }
 
     /// Get employee by code
-    pub fn get_employee_by_code(&self, conn: &mut DatabaseConnection, emp_code: &str) -> CLIERPResult<Option<EmployeeWithDepartment>> {
+    pub fn get_employee_by_code(
+        &self,
+        conn: &mut DatabaseConnection,
+        emp_code: &str,
+    ) -> CLIERPResult<Option<EmployeeWithDepartment>> {
         use crate::database::schema::employees::dsl::*;
 
         let result = employees
@@ -194,7 +217,11 @@ impl EmployeeService {
     }
 
     /// Search employees by name or email
-    pub fn search_employees(&self, conn: &mut DatabaseConnection, query: &str) -> CLIERPResult<Vec<EmployeeWithDepartment>> {
+    pub fn search_employees(
+        &self,
+        conn: &mut DatabaseConnection,
+        query: &str,
+    ) -> CLIERPResult<Vec<EmployeeWithDepartment>> {
         use crate::database::schema::employees::dsl::*;
 
         let search_pattern = format!("%{}%", query);
@@ -204,7 +231,7 @@ impl EmployeeService {
             .filter(
                 name.like(&search_pattern)
                     .or(email.like(&search_pattern))
-                    .or(employee_code.like(&search_pattern))
+                    .or(employee_code.like(&search_pattern)),
             )
             .select((Employee::as_select(), Department::as_select()))
             .order(name.asc())
@@ -230,8 +257,9 @@ impl EmployeeService {
         use crate::database::schema::employees::dsl::*;
 
         // Check if employee exists
-        let emp = self.get_employee_by_id(conn, request.id)?
-            .ok_or_else(|| CLIERPError::NotFound(format!("Employee with ID {} not found", request.id)))?;
+        let emp = self.get_employee_by_id(conn, request.id)?.ok_or_else(|| {
+            CLIERPError::NotFound(format!("Employee with ID {} not found", request.id))
+        })?;
 
         // Validate department if changing
         if let Some(dept_id) = request.department_id {
@@ -239,9 +267,12 @@ impl EmployeeService {
                 .filter(departments::id.eq(dept_id))
                 .first::<Department>(conn)
                 .optional()?
-                .ok_or_else(|| CLIERPError::ValidationError(
-                    format!("Department with ID {} not found", dept_id)
-                ))?;
+                .ok_or_else(|| {
+                    CLIERPError::ValidationError(format!(
+                        "Department with ID {} not found",
+                        dept_id
+                    ))
+                })?;
         }
 
         // Check email conflicts if updating
@@ -254,9 +285,10 @@ impl EmployeeService {
                     .optional()?;
 
                 if existing.is_some() {
-                    return Err(CLIERPError::ValidationError(
-                        format!("Employee with email '{}' already exists", new_email_val)
-                    ));
+                    return Err(CLIERPError::ValidationError(format!(
+                        "Employee with email '{}' already exists",
+                        new_email_val
+                    )));
                 }
             }
         }
@@ -303,8 +335,9 @@ impl EmployeeService {
         use crate::database::schema::employees::dsl::*;
 
         // Check if employee exists
-        let _emp = self.get_employee_by_id(conn, emp_id)?
-            .ok_or_else(|| CLIERPError::NotFound(format!("Employee with ID {} not found", emp_id)))?;
+        let _emp = self.get_employee_by_id(conn, emp_id)?.ok_or_else(|| {
+            CLIERPError::NotFound(format!("Employee with ID {} not found", emp_id))
+        })?;
 
         // Soft delete - set status to terminated
         diesel::update(employees.filter(id.eq(emp_id)))
@@ -318,7 +351,10 @@ impl EmployeeService {
     }
 
     /// Get employee count by status
-    pub fn get_employee_count_by_status(&self, conn: &mut DatabaseConnection) -> CLIERPResult<EmployeeStatusCount> {
+    pub fn get_employee_count_by_status(
+        &self,
+        conn: &mut DatabaseConnection,
+    ) -> CLIERPResult<EmployeeStatusCount> {
         use crate::database::schema::employees::dsl::*;
 
         let active_count = employees
@@ -365,8 +401,14 @@ impl crate::utils::export::CsvSerializable for EmployeeWithDepartment {
             self.employee.salary.to_string(),
             escape_csv_value(&self.employee.status),
             self.employee.hire_date.format("%Y-%m-%d").to_string(),
-            self.employee.created_at.format("%Y-%m-%d %H:%M:%S").to_string(),
-            self.employee.updated_at.format("%Y-%m-%d %H:%M:%S").to_string(),
+            self.employee
+                .created_at
+                .format("%Y-%m-%d %H:%M:%S")
+                .to_string(),
+            self.employee
+                .updated_at
+                .format("%Y-%m-%d %H:%M:%S")
+                .to_string(),
         ]
     }
 }

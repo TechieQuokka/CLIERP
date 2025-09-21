@@ -16,7 +16,14 @@ impl Default for PaginationParams {
 }
 
 impl PaginationParams {
-    pub fn new(page: Option<i64>, per_page: Option<i64>) -> Self {
+    pub fn new(page: usize, per_page: i64) -> Self {
+        Self {
+            page: Some(page as i64),
+            per_page: Some(per_page)
+        }
+    }
+
+    pub fn new_with_options(page: Option<i64>, per_page: Option<i64>) -> Self {
         Self { page, per_page }
     }
 
@@ -76,10 +83,29 @@ impl<T> PaginatedResult<T> {
     pub fn new(data: Vec<T>, params: &PaginationParams, total_count: i64) -> Self {
         let pagination = PaginationInfo::new(params.page(), params.per_page(), total_count);
 
-        Self {
-            data,
-            pagination,
-        }
+        Self { data, pagination }
+    }
+}
+
+// Alias for backward compatibility
+pub type PaginationResult<T> = PaginatedResult<T>;
+
+impl<T> PaginationResult<T> {
+    pub fn new_simple(data: Vec<T>, total_count: usize, params: &PaginationParams) -> Self {
+        let pagination = PaginationInfo::new(params.page(), params.per_page(), total_count as i64);
+        Self { data, pagination }
+    }
+
+    pub fn current_page(&self) -> i64 {
+        self.pagination.current_page
+    }
+
+    pub fn total_pages(&self) -> i64 {
+        self.pagination.total_pages
+    }
+
+    pub fn total_items(&self) -> i64 {
+        self.pagination.total_count
     }
 }
 

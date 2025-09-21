@@ -1,10 +1,10 @@
+use chrono::{Local, NaiveDate, NaiveTime, Timelike};
 use diesel::prelude::*;
-use chrono::{NaiveDate, NaiveTime, Local, Timelike};
 use serde::{Deserialize, Serialize};
 
-use crate::core::result::CLIERPResult;
 use crate::core::error::CLIERPError;
-use crate::database::models::{Attendance, NewAttendance, AttendanceStatus, Employee};
+use crate::core::result::CLIERPResult;
+use crate::database::models::{Attendance, Employee, NewAttendance};
 use crate::database::schema::{attendances, employees};
 
 pub struct AttendanceService;
@@ -15,7 +15,11 @@ impl AttendanceService {
     }
 
     /// Check in an employee for today
-    pub fn check_in(&self, conn: &mut SqliteConnection, employee_id: i32) -> CLIERPResult<Attendance> {
+    pub fn check_in(
+        &self,
+        conn: &mut SqliteConnection,
+        employee_id: i32,
+    ) -> CLIERPResult<Attendance> {
         let today = Local::now().date_naive();
         let now = Local::now().time();
 
@@ -26,21 +30,25 @@ impl AttendanceService {
             .first::<Attendance>(conn)
             .optional()?;
 
-        if let Some(mut attendance) = existing_attendance {
+        if let Some(attendance) = existing_attendance {
             if attendance.check_in.is_some() {
                 return Err(CLIERPError::ValidationError(
-                    "Employee already checked in today".to_string()
+                    "Employee already checked in today".to_string(),
                 ));
             }
 
             // Update existing record with check-in time
-            let updated_attendance = diesel::update(attendances::table)
+            diesel::update(attendances::table)
                 .filter(attendances::id.eq(attendance.id))
                 .set((
                     attendances::check_in.eq(Some(now)),
                     attendances::status.eq(if now.hour() > 9 { "late" } else { "present" }),
                 ))
-                .get_result::<Attendance>(conn)?;
+                .execute(conn)?;
+
+            let updated_attendance = attendances::table
+                .filter(attendances::id.eq(attendance.id))
+                .first::<Attendance>(conn)?;
 
             Ok(updated_attendance)
         } else {
@@ -52,20 +60,33 @@ impl AttendanceService {
                 check_out: None,
                 break_time: 0,
                 overtime_hours: 0.0,
-                status: if now.hour() > 9 { "late".to_string() } else { "present".to_string() },
+                status: if now.hour() > 9 {
+                    "late".to_string()
+                } else {
+                    "present".to_string()
+                },
                 notes: None,
             };
 
-            let attendance = diesel::insert_into(attendances::table)
+            diesel::insert_into(attendances::table)
                 .values(&new_attendance)
-                .get_result::<Attendance>(conn)?;
+                .execute(conn)?;
+
+            let attendance = attendances::table
+                .filter(attendances::employee_id.eq(employee_id))
+                .filter(attendances::date.eq(today))
+                .first::<Attendance>(conn)?;
 
             Ok(attendance)
         }
     }
 
     /// Check out an employee for today
-    pub fn check_out(&self, conn: &mut SqliteConnection, employee_id: i32) -> CLIERPResult<Attendance> {
+    pub fn check_out(
+        &self,
+        conn: &mut SqliteConnection,
+        employee_id: i32,
+    ) -> CLIERPResult<Attendance> {
         let today = Local::now().date_naive();
         let now = Local::now().time();
 
@@ -74,39 +95,58 @@ impl AttendanceService {
             .filter(attendances::date.eq(today))
             .first::<Attendance>(conn)
             .optional()?
-            .ok_or_else(|| CLIERPError::NotFound("No check-in record found for today".to_string()))?;
+            .ok_or_else(|| {
+                CLIERPError::NotFound("No check-in record found for today".to_string())
+            })?;
 
         if attendance.check_out.is_some() {
             return Err(CLIERPError::ValidationError(
-                "Employee already checked out today".to_string()
+                "Employee already checked out today".to_string(),
             ));
         }
 
         if attendance.check_in.is_none() {
             return Err(CLIERPError::ValidationError(
-                "Employee must check in before checking out".to_string()
+                "Employee must check in before checking out".to_string(),
             ));
         }
 
         // Calculate overtime hours if applicable
         let check_in_time = attendance.check_in.unwrap();
         let work_hours = Self::calculate_work_hours(check_in_time, now, attendance.break_time);
-        let overtime_hours = if work_hours > 8.0 { work_hours - 8.0 } else { 0.0 };
+        let overtime_hours = if work_hours > 8.0 {
+            work_hours - 8.0
+        } else {
+            0.0
+        };
 
-        let updated_attendance = diesel::update(attendances::table)
+        diesel::update(attendances::table)
             .filter(attendances::id.eq(attendance.id))
             .set((
                 attendances::check_out.eq(Some(now)),
                 attendances::overtime_hours.eq(overtime_hours),
-                attendances::status.eq(if now.hour() < 17 { "early_leave" } else { "present" }),
+                attendances::status.eq(if now.hour() < 17 {
+                    "early_leave"
+                } else {
+                    "present"
+                }),
             ))
-            .get_result::<Attendance>(conn)?;
+            .execute(conn)?;
+
+        let updated_attendance = attendances::table
+            .filter(attendances::id.eq(attendance.id))
+            .first::<Attendance>(conn)?;
 
         Ok(updated_attendance)
     }
 
     /// Get attendance for a specific date
-    pub fn get_attendance_by_date(&self, conn: &mut SqliteConnection, employee_id: i32, date: NaiveDate) -> CLIERPResult<Option<AttendanceWithEmployee>> {
+    pub fn get_attendance_by_date(
+        &self,
+        conn: &mut SqliteConnection,
+        employee_id: i32,
+        date: NaiveDate,
+    ) -> CLIERPResult<Option<AttendanceWithEmployee>> {
         let result = attendances::table
             .inner_join(employees::table)
             .filter(attendances::employee_id.eq(employee_id))
@@ -122,7 +162,10 @@ impl AttendanceService {
     }
 
     /// Get today's attendance for all employees
-    pub fn get_today_attendance(&self, conn: &mut SqliteConnection) -> CLIERPResult<Vec<AttendanceWithEmployee>> {
+    pub fn get_today_attendance(
+        &self,
+        conn: &mut SqliteConnection,
+    ) -> CLIERPResult<Vec<AttendanceWithEmployee>> {
         let today = Local::now().date_naive();
 
         let results = attendances::table
@@ -131,14 +174,23 @@ impl AttendanceService {
             .select((Attendance::as_select(), Employee::as_select()))
             .load::<(Attendance, Employee)>(conn)?;
 
-        Ok(results.into_iter().map(|(attendance, employee)| AttendanceWithEmployee {
-            attendance,
-            employee,
-        }).collect())
+        Ok(results
+            .into_iter()
+            .map(|(attendance, employee)| AttendanceWithEmployee {
+                attendance,
+                employee,
+            })
+            .collect())
     }
 
     /// Get attendance history for an employee
-    pub fn get_employee_attendance_history(&self, conn: &mut SqliteConnection, employee_id: i32, from_date: Option<NaiveDate>, to_date: Option<NaiveDate>) -> CLIERPResult<Vec<Attendance>> {
+    pub fn get_employee_attendance_history(
+        &self,
+        conn: &mut SqliteConnection,
+        employee_id: i32,
+        from_date: Option<NaiveDate>,
+        to_date: Option<NaiveDate>,
+    ) -> CLIERPResult<Vec<Attendance>> {
         let mut query = attendances::table
             .filter(attendances::employee_id.eq(employee_id))
             .into_boxed();
@@ -159,7 +211,13 @@ impl AttendanceService {
     }
 
     /// Get monthly attendance statistics for an employee
-    pub fn get_monthly_stats(&self, conn: &mut SqliteConnection, employee_id: i32, year: i32, month: u32) -> CLIERPResult<AttendanceStats> {
+    pub fn get_monthly_stats(
+        &self,
+        conn: &mut SqliteConnection,
+        employee_id: i32,
+        year: i32,
+        month: u32,
+    ) -> CLIERPResult<AttendanceStats> {
         let start_date = NaiveDate::from_ymd_opt(year, month, 1)
             .ok_or_else(|| CLIERPError::ValidationError("Invalid date".to_string()))?;
 
@@ -182,7 +240,10 @@ impl AttendanceService {
             .load::<Attendance>(conn)?;
 
         let total_days = attendances.len() as i32;
-        let present_days = attendances.iter().filter(|a| a.status == "present" || a.status == "late").count() as i32;
+        let present_days = attendances
+            .iter()
+            .filter(|a| a.status == "present" || a.status == "late")
+            .count() as i32;
         let late_days = attendances.iter().filter(|a| a.status == "late").count() as i32;
         let absent_days = attendances.iter().filter(|a| a.status == "absent").count() as i32;
         let total_overtime = attendances.iter().map(|a| a.overtime_hours).sum::<f32>();
@@ -197,7 +258,13 @@ impl AttendanceService {
     }
 
     /// Mark employee as absent for a specific date
-    pub fn mark_absent(&self, conn: &mut SqliteConnection, employee_id: i32, date: NaiveDate, notes: Option<String>) -> CLIERPResult<Attendance> {
+    pub fn mark_absent(
+        &self,
+        conn: &mut SqliteConnection,
+        employee_id: i32,
+        date: NaiveDate,
+        notes: Option<String>,
+    ) -> CLIERPResult<Attendance> {
         // Check if attendance already exists
         let existing = attendances::table
             .filter(attendances::employee_id.eq(employee_id))
@@ -207,13 +274,17 @@ impl AttendanceService {
 
         if let Some(attendance) = existing {
             // Update existing record
-            let updated = diesel::update(attendances::table)
+            diesel::update(attendances::table)
                 .filter(attendances::id.eq(attendance.id))
                 .set((
                     attendances::status.eq("absent"),
                     attendances::notes.eq(notes),
                 ))
-                .get_result::<Attendance>(conn)?;
+                .execute(conn)?;
+
+            let updated = attendances::table
+                .filter(attendances::id.eq(attendance.id))
+                .first::<Attendance>(conn)?;
             Ok(updated)
         } else {
             // Create new absence record
@@ -228,9 +299,14 @@ impl AttendanceService {
                 notes,
             };
 
-            let attendance = diesel::insert_into(attendances::table)
+            diesel::insert_into(attendances::table)
                 .values(&new_attendance)
-                .get_result::<Attendance>(conn)?;
+                .execute(conn)?;
+
+            let attendance = attendances::table
+                .filter(attendances::employee_id.eq(employee_id))
+                .filter(attendances::date.eq(date))
+                .first::<Attendance>(conn)?;
 
             Ok(attendance)
         }
@@ -238,7 +314,8 @@ impl AttendanceService {
 
     /// Calculate work hours between check-in and check-out
     fn calculate_work_hours(check_in: NaiveTime, check_out: NaiveTime, break_minutes: i32) -> f32 {
-        let total_minutes = (check_out.signed_duration_since(check_in)).num_minutes() - break_minutes as i64;
+        let total_minutes =
+            (check_out.signed_duration_since(check_in)).num_minutes() - break_minutes as i64;
         total_minutes as f32 / 60.0
     }
 }

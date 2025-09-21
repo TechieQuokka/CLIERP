@@ -1,13 +1,13 @@
-use diesel::prelude::*;
 use chrono::NaiveDate;
+use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::core::result::CLIERPResult;
-use crate::core::error::CLIERPError;
-use crate::database::models::{Account, Transaction};
-use crate::database::schema::{accounts, transactions};
 use super::account::AccountService;
 use super::transaction::TransactionService;
+use crate::core::error::CLIERPError;
+use crate::core::result::CLIERPResult;
+use crate::database::models::Account;
+use crate::database::schema::accounts;
 
 pub struct ReportService;
 
@@ -17,7 +17,12 @@ impl ReportService {
     }
 
     /// Generate Income Statement (Profit & Loss)
-    pub fn generate_income_statement(&self, conn: &mut SqliteConnection, from_date: NaiveDate, to_date: NaiveDate) -> CLIERPResult<IncomeStatement> {
+    pub fn generate_income_statement(
+        &self,
+        conn: &mut SqliteConnection,
+        from_date: NaiveDate,
+        to_date: NaiveDate,
+    ) -> CLIERPResult<IncomeStatement> {
         let account_service = AccountService::new();
         let transaction_service = TransactionService::new();
 
@@ -27,8 +32,14 @@ impl ReportService {
         let mut total_revenue = 0;
 
         for account in revenue_accounts {
-            let transactions = transaction_service.get_account_transactions(conn, account.id, Some(from_date), Some(to_date))?;
-            let period_balance = transactions.iter()
+            let transactions = transaction_service.get_account_transactions(
+                conn,
+                account.id,
+                Some(from_date),
+                Some(to_date),
+            )?;
+            let period_balance = transactions
+                .iter()
                 .map(|t| match t.debit_credit.as_str() {
                     "credit" => t.amount,
                     "debit" => -t.amount,
@@ -52,8 +63,14 @@ impl ReportService {
         let mut total_expenses = 0;
 
         for account in expense_accounts {
-            let transactions = transaction_service.get_account_transactions(conn, account.id, Some(from_date), Some(to_date))?;
-            let period_balance = transactions.iter()
+            let transactions = transaction_service.get_account_transactions(
+                conn,
+                account.id,
+                Some(from_date),
+                Some(to_date),
+            )?;
+            let period_balance = transactions
+                .iter()
                 .map(|t| match t.debit_credit.as_str() {
                     "debit" => t.amount,
                     "credit" => -t.amount,
@@ -85,7 +102,11 @@ impl ReportService {
     }
 
     /// Generate Balance Sheet
-    pub fn generate_balance_sheet(&self, conn: &mut SqliteConnection, as_of_date: NaiveDate) -> CLIERPResult<BalanceSheet> {
+    pub fn generate_balance_sheet(
+        &self,
+        conn: &mut SqliteConnection,
+        as_of_date: NaiveDate,
+    ) -> CLIERPResult<BalanceSheet> {
         let account_service = AccountService::new();
         let transaction_service = TransactionService::new();
 
@@ -95,8 +116,14 @@ impl ReportService {
         let mut total_assets = 0;
 
         for account in asset_accounts {
-            let transactions = transaction_service.get_account_transactions(conn, account.id, None, Some(as_of_date))?;
-            let balance = transactions.iter()
+            let transactions = transaction_service.get_account_transactions(
+                conn,
+                account.id,
+                None,
+                Some(as_of_date),
+            )?;
+            let balance = transactions
+                .iter()
                 .map(|t| match t.debit_credit.as_str() {
                     "debit" => t.amount,
                     "credit" => -t.amount,
@@ -120,8 +147,14 @@ impl ReportService {
         let mut total_liabilities = 0;
 
         for account in liability_accounts {
-            let transactions = transaction_service.get_account_transactions(conn, account.id, None, Some(as_of_date))?;
-            let balance = transactions.iter()
+            let transactions = transaction_service.get_account_transactions(
+                conn,
+                account.id,
+                None,
+                Some(as_of_date),
+            )?;
+            let balance = transactions
+                .iter()
                 .map(|t| match t.debit_credit.as_str() {
                     "credit" => t.amount,
                     "debit" => -t.amount,
@@ -145,8 +178,14 @@ impl ReportService {
         let mut total_equity = 0;
 
         for account in equity_accounts {
-            let transactions = transaction_service.get_account_transactions(conn, account.id, None, Some(as_of_date))?;
-            let balance = transactions.iter()
+            let transactions = transaction_service.get_account_transactions(
+                conn,
+                account.id,
+                None,
+                Some(as_of_date),
+            )?;
+            let balance = transactions
+                .iter()
                 .map(|t| match t.debit_credit.as_str() {
                     "credit" => t.amount,
                     "debit" => -t.amount,
@@ -181,7 +220,11 @@ impl ReportService {
     }
 
     /// Generate Trial Balance
-    pub fn generate_trial_balance(&self, conn: &mut SqliteConnection, as_of_date: NaiveDate) -> CLIERPResult<TrialBalanceReport> {
+    pub fn generate_trial_balance(
+        &self,
+        conn: &mut SqliteConnection,
+        as_of_date: NaiveDate,
+    ) -> CLIERPResult<TrialBalanceReport> {
         let account_service = AccountService::new();
         let transaction_service = TransactionService::new();
 
@@ -191,14 +234,21 @@ impl ReportService {
         let mut total_credits = 0;
 
         for account in all_accounts {
-            let transactions = transaction_service.get_account_transactions(conn, account.id, None, Some(as_of_date))?;
+            let transactions = transaction_service.get_account_transactions(
+                conn,
+                account.id,
+                None,
+                Some(as_of_date),
+            )?;
 
-            let debit_balance = transactions.iter()
+            let debit_balance = transactions
+                .iter()
                 .filter(|t| t.debit_credit == "debit")
                 .map(|t| t.amount)
                 .sum::<i32>();
 
-            let credit_balance = transactions.iter()
+            let credit_balance = transactions
+                .iter()
                 .filter(|t| t.debit_credit == "credit")
                 .map(|t| t.amount)
                 .sum::<i32>();
@@ -238,12 +288,19 @@ impl ReportService {
     }
 
     /// Generate General Ledger Report
-    pub fn generate_general_ledger_report(&self, conn: &mut SqliteConnection, account_id: Option<i32>, from_date: Option<NaiveDate>, to_date: Option<NaiveDate>) -> CLIERPResult<GeneralLedgerReport> {
+    pub fn generate_general_ledger_report(
+        &self,
+        conn: &mut SqliteConnection,
+        account_id: Option<i32>,
+        from_date: Option<NaiveDate>,
+        to_date: Option<NaiveDate>,
+    ) -> CLIERPResult<GeneralLedgerReport> {
         let account_service = AccountService::new();
         let transaction_service = TransactionService::new();
 
         let accounts = if let Some(account_id) = account_id {
-            vec![account_service.get_account_by_id(conn, account_id)?
+            vec![account_service
+                .get_account_by_id(conn, account_id)?
                 .ok_or_else(|| CLIERPError::NotFound("Account not found".to_string()))?]
         } else {
             account_service.list_accounts(conn)?
@@ -252,7 +309,8 @@ impl ReportService {
         let mut ledger_accounts = Vec::new();
 
         for account in accounts {
-            let general_ledger = transaction_service.get_general_ledger(conn, account.id, from_date, to_date)?;
+            let general_ledger =
+                transaction_service.get_general_ledger(conn, account.id, from_date, to_date)?;
             if !general_ledger.entries.is_empty() {
                 ledger_accounts.push(general_ledger);
             }
@@ -266,7 +324,12 @@ impl ReportService {
     }
 
     /// Generate Cash Flow Statement (simplified)
-    pub fn generate_cash_flow_statement(&self, conn: &mut SqliteConnection, from_date: NaiveDate, to_date: NaiveDate) -> CLIERPResult<CashFlowStatement> {
+    pub fn generate_cash_flow_statement(
+        &self,
+        conn: &mut SqliteConnection,
+        from_date: NaiveDate,
+        to_date: NaiveDate,
+    ) -> CLIERPResult<CashFlowStatement> {
         let transaction_service = TransactionService::new();
 
         // Find cash accounts (assuming account codes starting with "1000" are cash)
@@ -281,14 +344,23 @@ impl ReportService {
         let mut cash_flow_items = Vec::new();
 
         for account in cash_accounts {
-            let transactions = transaction_service.get_account_transactions(conn, account.id, Some(from_date), Some(to_date))?;
+            let transactions = transaction_service.get_account_transactions(
+                conn,
+                account.id,
+                Some(from_date),
+                Some(to_date),
+            )?;
 
             for transaction in transactions {
                 let item = CashFlowItem {
                     date: transaction.transaction_date,
                     description: transaction.description.clone(),
                     account_name: account.account_name.clone(),
-                    amount: if transaction.debit_credit == "debit" { transaction.amount } else { -transaction.amount },
+                    amount: if transaction.debit_credit == "debit" {
+                        transaction.amount
+                    } else {
+                        -transaction.amount
+                    },
                 };
 
                 if item.amount > 0 {

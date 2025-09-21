@@ -54,3 +54,7 @@ coverage/
 # Configuration files (may contain sensitive data)
 config/*.toml
 !config/default.toml
+
+# Added by cargo
+
+/target

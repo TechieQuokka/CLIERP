@@ -1,0 +1,56 @@
+# Rust
+/target/
+**/*.rs.bk
+*.pdb
+Cargo.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Temporary files
+*~
+*.tmp
+*.temp
+
+# Binary files
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test coverage
+coverage/
+*.profraw
+*.profdata
+
+# Documentation build
+/book/
+
+# Backup files
+*.bak
+*.backup
+
+# Configuration files (may contain sensitive data)
+config/*.toml
+!config/default.toml

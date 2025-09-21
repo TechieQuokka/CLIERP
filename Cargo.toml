@@ -54,5 +54,9 @@ lazy_static = "1.4"
 rand = "0.8"
 regex = "1.10"
 
+# QR Code and Image Processing
+qrcode = "0.14"
+image = "0.24"
+
 [dev-dependencies]
 tempfile = "3.8"

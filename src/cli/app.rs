@@ -101,6 +101,8 @@ impl CLIApp {
             CLICommands::Fin { action } => self.execute_fin_command(action).await,
             CLICommands::Inv { action } => self.execute_inv_command(action).await,
             CLICommands::Crm { action } => self.execute_crm_command(action).await,
+            CLICommands::Sales { action } => self.execute_sales_command(action).await,
+            CLICommands::Purchase { action } => self.execute_purchase_command(action).await,
         }
     }
 
@@ -562,8 +564,350 @@ impl CLIApp {
             CLIERPError::Authentication("Login required for CRM commands".to_string())
         })?;
 
-        println!("CRM command executed: {:?}", action);
-        // CRM command implementation will be added in Phase 3
+        let mut conn = DatabaseManager::establish_connection(&self.config.database.url)?;
+
+        match crate::cli::commands::crm::execute_crm_command(&mut conn, action) {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                eprintln!("CRM command failed: {}", e);
+                Err(CLIERPError::Internal(format!("CRM command error: {}", e)))
+            }
+        }
+    }
+
+    async fn execute_sales_command(
+        &mut self,
+        action: crate::core::command::SalesCommands,
+    ) -> CLIERPResult<()> {
+        // Check authentication for sales commands
+        let _user = self.session_manager.get_current_user()?.ok_or_else(|| {
+            CLIERPError::Authentication("Login required for sales commands".to_string())
+        })?;
+
+        let mut conn = DatabaseManager::establish_connection(&self.config.database.url)?;
+
+        // Convert from simple command enum to the extended command structure
+        use crate::cli::commands::crm_extended::{execute_crm_extended_command, CrmExtendedCommands, CrmExtendedAction};
+
+        let extended_action = match action {
+            crate::core::command::SalesCommands::Dashboard => CrmExtendedAction::Dashboard,
+            crate::core::command::SalesCommands::Pipeline => CrmExtendedAction::Pipeline,
+            crate::core::command::SalesCommands::Performance => CrmExtendedAction::Performance,
+            _ => {
+                println!("Sales command: {:?}", action);
+                println!("Full sales functionality available through interactive mode");
+                return Ok(());
+            }
+        };
+
+        let extended_cmd = CrmExtendedCommands {
+            action: extended_action,
+        };
+
+        match execute_crm_extended_command(&mut conn, extended_cmd) {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                eprintln!("Sales command failed: {}", e);
+                Err(CLIERPError::Internal(format!("Sales command error: {}", e)))
+            }
+        }
+    }
+
+    async fn execute_purchase_command(
+        &mut self,
+        action: crate::core::command::PurchaseCommands,
+    ) -> CLIERPResult<()> {
+        use crate::core::command::{PurchaseCommands, SupplierCommands, PurchaseOrderCommands};
+        use crate::modules::inventory::{SupplierService, PurchaseOrderService, PurchaseOrderItem, ReceiveItemData};
+        use crate::utils::filters::FilterOptions;
+        use crate::utils::pagination::PaginationParams;
+
+        // Check authentication for purchase commands
+        let _user = self.session_manager.get_current_user()?.ok_or_else(|| {
+            CLIERPError::Authentication("Login required for purchase commands".to_string())
+        })?;
+
+        let mut conn = DatabaseManager::establish_connection(&self.config.database.url)?;
+
+        match action {
+            PurchaseCommands::Supplier { action } => {
+                match action {
+                    SupplierCommands::Add {
+                        code,
+                        name,
+                        contact,
+                        email,
+                        phone,
+                        address,
+                        payment_terms,
+                    } => {
+                        let supplier = SupplierService::create_supplier(
+                            &mut conn,
+                            &code,
+                            &name,
+                            contact.as_deref(),
+                            email.as_deref(),
+                            phone.as_deref(),
+                            address.as_deref(),
+                            payment_terms.as_deref(),
+                        )?;
+
+                        println!("✅ Supplier created successfully!");
+                        println!("ID: {}", supplier.id);
+                        println!("Code: {}", supplier.supplier_code);
+                        println!("Name: {}", supplier.name);
+                    }
+                    SupplierCommands::List {
+                        search,
+                        status,
+                        page,
+                        per_page,
+                    } => {
+                        let filters = FilterOptions {
+                            search,
+                            status,
+                            ..Default::default()
+                        };
+
+                        let pagination = PaginationParams::new(page, per_page);
+                        let result = SupplierService::list_suppliers(&mut conn, &filters, &pagination)?;
+
+                        if result.items.is_empty() {
+                            println!("No suppliers found.");
+                            return Ok(());
+                        }
+
+                        println!("Suppliers:");
+                        for (i, supplier) in result.items.iter().enumerate() {
+                            println!(
+                                "  {}. {} ({}) - {} - {}",
+                                (page - 1) * per_page + i as u32 + 1,
+                                supplier.name,
+                                supplier.supplier_code,
+                                supplier.contact_person.as_deref().unwrap_or("-"),
+                                supplier.status
+                            );
+                        }
+                        println!("Page {} of {} ({} total)", result.page, result.total_pages, result.total_items);
+                    }
+                    SupplierCommands::Show { supplier_id } => {
+                        let supplier = SupplierService::get_supplier_by_id(&mut conn, supplier_id)?
+                            .ok_or_else(|| CLIERPError::NotFound(format!("Supplier with ID {} not found", supplier_id)))?;
+
+                        let stats = SupplierService::get_supplier_statistics(&mut conn, supplier_id)?;
+
+                        println!("Supplier Details:");
+                        println!("ID: {}", supplier.id);
+                        println!("Code: {}", supplier.supplier_code);
+                        println!("Name: {}", supplier.name);
+                        println!("Contact Person: {}", supplier.contact_person.unwrap_or_else(|| "-".to_string()));
+                        println!("Email: {}", supplier.email.unwrap_or_else(|| "-".to_string()));
+                        println!("Phone: {}", supplier.phone.unwrap_or_else(|| "-".to_string()));
+                        println!("Address: {}", supplier.address.unwrap_or_else(|| "-".to_string()));
+                        println!("Payment Terms: {}", supplier.payment_terms.unwrap_or_else(|| "-".to_string()));
+                        println!("Status: {}", supplier.status);
+                        println!();
+                        println!("Statistics:");
+                        println!("Total Orders: {}", stats.total_orders);
+                        println!("Pending Orders: {}", stats.pending_orders);
+                        println!("Total Amount: ₩{:,}", stats.total_amount);
+                    }
+                    SupplierCommands::Update {
+                        supplier_id,
+                        name,
+                        contact,
+                        email,
+                        phone,
+                        address,
+                        payment_terms,
+                        status,
+                    } => {
+                        let status_enum = status.map(|s| match s.as_str() {
+                            "active" => crate::database::SupplierStatus::Active,
+                            "inactive" => crate::database::SupplierStatus::Inactive,
+                            "blacklisted" => crate::database::SupplierStatus::Blacklisted,
+                            _ => crate::database::SupplierStatus::Active,
+                        });
+
+                        let supplier = SupplierService::update_supplier(
+                            &mut conn,
+                            supplier_id,
+                            name.as_deref(),
+                            contact.map(|c| c.as_deref()),
+                            email.map(|e| e.as_deref()),
+                            phone.map(|p| p.as_deref()),
+                            address.map(|a| a.as_deref()),
+                            payment_terms.map(|pt| pt.as_deref()),
+                            status_enum,
+                        )?;
+
+                        println!("✅ Supplier updated successfully!");
+                        println!("ID: {}", supplier.id);
+                        println!("Name: {}", supplier.name);
+                        println!("Status: {}", supplier.status);
+                    }
+                }
+            }
+            PurchaseCommands::Order { action } => {
+                match action {
+                    PurchaseOrderCommands::Create {
+                        supplier_id,
+                        expected_date,
+                        notes,
+                        items,
+                    } => {
+                        let expected_date = expected_date.map(|s| s.parse().unwrap());
+
+                        // Parse items string
+                        let items: Result<Vec<PurchaseOrderItem>, _> = items
+                            .split(',')
+                            .map(|item| {
+                                let parts: Vec<&str> = item.split(':').collect();
+                                if parts.len() != 3 {
+                                    return Err(CLIERPError::InvalidInput(
+                                        "Items format should be: product_id:quantity:unit_cost".to_string()
+                                    ));
+                                }
+                                Ok(PurchaseOrderItem {
+                                    product_id: parts[0].parse().map_err(|_| CLIERPError::InvalidInput("Invalid product ID".to_string()))?,
+                                    quantity: parts[1].parse().map_err(|_| CLIERPError::InvalidInput("Invalid quantity".to_string()))?,
+                                    unit_cost: parts[2].parse().map_err(|_| CLIERPError::InvalidInput("Invalid unit cost".to_string()))?,
+                                })
+                            })
+                            .collect();
+
+                        let items = items?;
+                        let current_user_id = Some(1); // TODO: Get from session
+
+                        let po_with_details = PurchaseOrderService::create_purchase_order(
+                            &mut conn,
+                            supplier_id,
+                            expected_date,
+                            notes.as_deref(),
+                            items,
+                            current_user_id,
+                        )?;
+
+                        println!("✅ Purchase order created successfully!");
+                        println!("PO Number: {}", po_with_details.purchase_order.po_number);
+                        println!("Supplier: {}", po_with_details.supplier.name);
+                        println!("Total Amount: ₩{:,}", po_with_details.purchase_order.total_amount);
+                        println!("Items: {} products", po_with_details.items.len());
+                    }
+                    PurchaseOrderCommands::List {
+                        search,
+                        status,
+                        date_from,
+                        date_to,
+                        page,
+                        per_page,
+                    } => {
+                        let filters = FilterOptions {
+                            search,
+                            status,
+                            date_from: date_from.map(|s| s.parse().unwrap()),
+                            date_to: date_to.map(|s| s.parse().unwrap()),
+                            ..Default::default()
+                        };
+
+                        let pagination = PaginationParams::new(page, per_page);
+                        let result = PurchaseOrderService::list_purchase_orders(&mut conn, &filters, &pagination)?;
+
+                        if result.items.is_empty() {
+                            println!("No purchase orders found.");
+                            return Ok(());
+                        }
+
+                        println!("Purchase Orders:");
+                        for (i, po) in result.items.iter().enumerate() {
+                            println!(
+                                "  {}. {} - {} - {} - {} items - ₩{:,}",
+                                (page - 1) * per_page + i as u32 + 1,
+                                po.po_number,
+                                po.supplier_name,
+                                po.status,
+                                po.items_count,
+                                po.total_amount
+                            );
+                        }
+                        println!("Page {} of {} ({} total)", result.page, result.total_pages, result.total_items);
+                    }
+                    PurchaseOrderCommands::Show { po_id } => {
+                        let po_details = PurchaseOrderService::get_purchase_order_with_details(&mut conn, po_id)?;
+
+                        println!("Purchase Order Details:");
+                        println!("PO Number: {}", po_details.purchase_order.po_number);
+                        println!("Supplier: {} ({})", po_details.supplier.name, po_details.supplier.supplier_code);
+                        println!("Order Date: {}", po_details.purchase_order.order_date);
+                        println!("Expected Date: {}", po_details.purchase_order.expected_date.map(|d| d.to_string()).unwrap_or_else(|| "-".to_string()));
+                        println!("Status: {}", po_details.purchase_order.status);
+                        println!("Total Amount: ₩{:,}", po_details.purchase_order.total_amount);
+                        if let Some(notes) = &po_details.purchase_order.notes {
+                            println!("Notes: {}", notes);
+                        }
+                        println!();
+
+                        println!("Items:");
+                        for (i, item) in po_details.items.iter().enumerate() {
+                            println!(
+                                "  {}. {} ({}) - Qty: {} - Cost: ₩{:,} each - Total: ₩{:,} - Received: {} - Status: {}",
+                                i + 1,
+                                item.product_name,
+                                item.product_sku,
+                                item.purchase_item.quantity,
+                                item.purchase_item.unit_cost,
+                                item.purchase_item.total_cost,
+                                item.purchase_item.received_quantity,
+                                item.purchase_item.status
+                            );
+                        }
+                    }
+                    PurchaseOrderCommands::Approve { po_id } => {
+                        let current_user_id = 1; // TODO: Get from session
+
+                        let purchase_order = PurchaseOrderService::approve_purchase_order(&mut conn, po_id, current_user_id)?;
+
+                        println!("✅ Purchase order approved successfully!");
+                        println!("PO Number: {}", purchase_order.po_number);
+                        println!("Status: {}", purchase_order.status);
+                    }
+                    PurchaseOrderCommands::Receive { po_id, items } => {
+                        let current_user_id = Some(1); // TODO: Get from session
+
+                        // Parse received items string
+                        let received_items: Result<Vec<ReceiveItemData>, _> = items
+                            .split(',')
+                            .map(|item| {
+                                let parts: Vec<&str> = item.split(':').collect();
+                                if parts.len() != 2 {
+                                    return Err(CLIERPError::InvalidInput(
+                                        "Items format should be: item_id:quantity".to_string()
+                                    ));
+                                }
+                                Ok(ReceiveItemData {
+                                    item_id: parts[0].parse().map_err(|_| CLIERPError::InvalidInput("Invalid item ID".to_string()))?,
+                                    quantity: parts[1].parse().map_err(|_| CLIERPError::InvalidInput("Invalid quantity".to_string()))?,
+                                })
+                            })
+                            .collect();
+
+                        let received_items = received_items?;
+
+                        let purchase_order = PurchaseOrderService::receive_purchase_items(
+                            &mut conn,
+                            po_id,
+                            received_items,
+                            current_user_id,
+                        )?;
+
+                        println!("✅ Purchase order items received successfully!");
+                        println!("PO Number: {}", purchase_order.po_number);
+                        println!("Status: {}", purchase_order.status);
+                    }
+                }
+            }
+        }
+
         Ok(())
     }
 }

@@ -139,6 +139,16 @@ pub enum CLICommands {
         #[command(subcommand)]
         action: CrmCommands,
     },
+    /// Sales management commands (Extended CRM)
+    Sales {
+        #[command(subcommand)]
+        action: SalesCommands,
+    },
+    /// Purchase management commands
+    Purchase {
+        #[command(subcommand)]
+        action: PurchaseCommands,
+    },
     /// System commands
     System {
         #[command(subcommand)]
@@ -594,6 +604,299 @@ pub enum LeadCommands {
     },
     /// List leads
     List,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum SalesCommands {
+    /// Customer management
+    Customer {
+        #[command(subcommand)]
+        action: SalesCustomerCommands,
+    },
+    /// Lead management
+    Lead {
+        #[command(subcommand)]
+        action: SalesLeadCommands,
+    },
+    /// Deal management
+    Deal {
+        #[command(subcommand)]
+        action: DealCommands,
+    },
+    /// Campaign management
+    Campaign {
+        #[command(subcommand)]
+        action: CampaignCommands,
+    },
+    /// Activity management
+    Activity {
+        #[command(subcommand)]
+        action: ActivityCommands,
+    },
+    /// CRM Dashboard
+    Dashboard,
+    /// Sales Pipeline
+    Pipeline,
+    /// Performance Overview
+    Performance,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum SalesCustomerCommands {
+    /// Create customer
+    Create,
+    /// List customers
+    List,
+    /// Show customer details
+    Show,
+    /// Update customer
+    Update,
+    /// Delete customer
+    Delete,
+    /// Search customers
+    Search,
+    /// Customer statistics
+    Stats,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum SalesLeadCommands {
+    /// Create lead
+    Create,
+    /// List leads
+    List,
+    /// Show lead details
+    Show,
+    /// Update lead status
+    UpdateStatus,
+    /// Update lead
+    Update,
+    /// Assign lead
+    Assign,
+    /// Delete lead
+    Delete,
+    /// Leads by status
+    ByStatus,
+    /// Lead statistics
+    Stats,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum DealCommands {
+    /// Create deal
+    Create,
+    /// List deals
+    List,
+    /// Show deal details
+    Show,
+    /// Update deal stage
+    UpdateStage,
+    /// Update deal
+    Update,
+    /// Delete deal
+    Delete,
+    /// Deals by stage
+    ByStage,
+    /// Deal statistics
+    Stats,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum CampaignCommands {
+    /// Create campaign
+    Create,
+    /// List campaigns
+    List,
+    /// Show campaign details
+    Show,
+    /// Update campaign
+    Update,
+    /// Update campaign status
+    UpdateStatus,
+    /// Delete campaign
+    Delete,
+    /// Campaigns by status
+    ByStatus,
+    /// Active campaigns
+    Active,
+    /// Campaign performance
+    Performance,
+    /// Campaign statistics
+    Stats,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum ActivityCommands {
+    /// Create activity
+    Create,
+    /// List activities
+    List,
+    /// Show activity details
+    Show,
+    /// Update activity
+    Update,
+    /// Complete activity
+    Complete,
+    /// Reopen activity
+    Reopen,
+    /// Delete activity
+    Delete,
+    /// Activities by customer
+    ByCustomer,
+    /// Activities by lead
+    ByLead,
+    /// Activities by employee
+    ByEmployee,
+    /// Overdue activities
+    Overdue,
+    /// Activity statistics
+    Stats,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum PurchaseCommands {
+    /// Supplier management
+    Supplier {
+        #[command(subcommand)]
+        action: SupplierCommands,
+    },
+    /// Purchase order management
+    Order {
+        #[command(subcommand)]
+        action: PurchaseOrderCommands,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum SupplierCommands {
+    /// Add supplier
+    Add {
+        /// Supplier code
+        #[arg(short, long)]
+        code: String,
+        /// Supplier name
+        #[arg(short, long)]
+        name: String,
+        /// Contact person
+        #[arg(long)]
+        contact: Option<String>,
+        /// Email
+        #[arg(short, long)]
+        email: Option<String>,
+        /// Phone
+        #[arg(short, long)]
+        phone: Option<String>,
+        /// Address
+        #[arg(long)]
+        address: Option<String>,
+        /// Payment terms
+        #[arg(long)]
+        payment_terms: Option<String>,
+    },
+    /// List suppliers
+    List {
+        /// Search term
+        #[arg(short, long)]
+        search: Option<String>,
+        /// Status filter
+        #[arg(long)]
+        status: Option<String>,
+        /// Page number
+        #[arg(long, default_value = "1")]
+        page: u32,
+        /// Items per page
+        #[arg(long, default_value = "20")]
+        per_page: u32,
+    },
+    /// Show supplier details
+    Show {
+        /// Supplier ID
+        supplier_id: i32,
+    },
+    /// Update supplier
+    Update {
+        /// Supplier ID
+        supplier_id: i32,
+        /// Supplier name
+        #[arg(short, long)]
+        name: Option<String>,
+        /// Contact person
+        #[arg(long)]
+        contact: Option<String>,
+        /// Email
+        #[arg(short, long)]
+        email: Option<String>,
+        /// Phone
+        #[arg(short, long)]
+        phone: Option<String>,
+        /// Address
+        #[arg(long)]
+        address: Option<String>,
+        /// Payment terms
+        #[arg(long)]
+        payment_terms: Option<String>,
+        /// Status
+        #[arg(long)]
+        status: Option<String>,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum PurchaseOrderCommands {
+    /// Create purchase order
+    Create {
+        /// Supplier ID
+        #[arg(short, long)]
+        supplier_id: i32,
+        /// Expected delivery date
+        #[arg(long)]
+        expected_date: Option<String>,
+        /// Order notes
+        #[arg(short, long)]
+        notes: Option<String>,
+        /// Items (format: product_id:quantity:unit_cost,...)
+        #[arg(long)]
+        items: String,
+    },
+    /// List purchase orders
+    List {
+        /// Search term
+        #[arg(short, long)]
+        search: Option<String>,
+        /// Status filter
+        #[arg(long)]
+        status: Option<String>,
+        /// Date from filter (YYYY-MM-DD)
+        #[arg(long)]
+        date_from: Option<String>,
+        /// Date to filter (YYYY-MM-DD)
+        #[arg(long)]
+        date_to: Option<String>,
+        /// Page number
+        #[arg(long, default_value = "1")]
+        page: u32,
+        /// Items per page
+        #[arg(long, default_value = "20")]
+        per_page: u32,
+    },
+    /// Show purchase order details
+    Show {
+        /// Purchase order ID
+        po_id: i32,
+    },
+    /// Approve purchase order
+    Approve {
+        /// Purchase order ID
+        po_id: i32,
+    },
+    /// Receive purchase order items
+    Receive {
+        /// Purchase order ID
+        po_id: i32,
+        /// Received items (format: item_id:quantity,...)
+        #[arg(long)]
+        items: String,
+    },
 }
 
 #[derive(Subcommand)]

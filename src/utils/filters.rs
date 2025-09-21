@@ -215,3 +215,17 @@ pub fn sort_items<T>(
     items.sort_by(|a, b| compare(a, b, &sort.direction));
     items
 }
+
+// Extended FilterOptions for CRM usage
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct FilterOptions {
+    pub search: Option<String>,
+    pub status: Option<String>,
+    pub priority: Option<String>,
+    pub filter_type: Option<String>,
+    pub assigned_to: Option<i32>,
+    pub date_from: Option<NaiveDate>,
+    pub date_to: Option<NaiveDate>,
+    pub sort_by: Option<String>,
+    pub sort_desc: bool,
+}

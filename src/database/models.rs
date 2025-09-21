@@ -3,7 +3,8 @@ use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use super::schema::{
-    accounts, attendances, audit_logs, categories, departments, employees, payrolls, products, stock_movements, transactions, users,
+    accounts, attendances, audit_logs, categories, departments, employees, payrolls, products,
+    product_attachments, stock_movements, stock_audits, stock_audit_items, transactions, users,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Queryable, Selectable)]
@@ -479,6 +480,122 @@ impl std::fmt::Display for ProductUnit {
             ProductUnit::Piece => write!(f, "pc"),
             ProductUnit::Box => write!(f, "box"),
             ProductUnit::Pack => write!(f, "pack"),
+        }
+    }
+}
+
+// Product attachment models
+#[derive(Debug, Clone, Serialize, Deserialize, Queryable, Selectable)]
+#[diesel(table_name = product_attachments)]
+pub struct ProductAttachment {
+    pub id: i32,
+    pub product_id: i32,
+    pub attachment_type: String,
+    pub file_name: String,
+    pub file_path: String,
+    pub file_size: i32,
+    pub mime_type: Option<String>,
+    pub is_primary: bool,
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
+}
+
+#[derive(Debug, Serialize, Deserialize, Insertable)]
+#[diesel(table_name = product_attachments)]
+pub struct NewProductAttachment {
+    pub product_id: i32,
+    pub attachment_type: String,
+    pub file_name: String,
+    pub file_path: String,
+    pub file_size: i32,
+    pub mime_type: Option<String>,
+    pub is_primary: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum AttachmentType {
+    Image,
+    Document,
+    Manual,
+    Certificate,
+}
+
+impl std::fmt::Display for AttachmentType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AttachmentType::Image => write!(f, "image"),
+            AttachmentType::Document => write!(f, "document"),
+            AttachmentType::Manual => write!(f, "manual"),
+            AttachmentType::Certificate => write!(f, "certificate"),
+        }
+    }
+}
+
+// Stock audit models
+#[derive(Debug, Clone, Serialize, Deserialize, Queryable, Selectable)]
+#[diesel(table_name = stock_audits)]
+pub struct StockAudit {
+    pub id: i32,
+    pub audit_name: String,
+    pub audit_date: NaiveDate,
+    pub status: String,
+    pub conducted_by: Option<i32>,
+    pub notes: Option<String>,
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
+}
+
+#[derive(Debug, Serialize, Deserialize, Insertable)]
+#[diesel(table_name = stock_audits)]
+pub struct NewStockAudit {
+    pub audit_name: String,
+    pub audit_date: NaiveDate,
+    pub status: String,
+    pub conducted_by: Option<i32>,
+    pub notes: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Queryable, Selectable)]
+#[diesel(table_name = stock_audit_items)]
+pub struct StockAuditItem {
+    pub id: i32,
+    pub audit_id: i32,
+    pub product_id: i32,
+    pub expected_quantity: i32,
+    pub actual_quantity: Option<i32>,
+    pub variance: Option<i32>,
+    pub notes: Option<String>,
+    pub audited_at: Option<NaiveDateTime>,
+    pub created_at: NaiveDateTime,
+}
+
+#[derive(Debug, Serialize, Deserialize, Insertable)]
+#[diesel(table_name = stock_audit_items)]
+pub struct NewStockAuditItem {
+    pub audit_id: i32,
+    pub product_id: i32,
+    pub expected_quantity: i32,
+    pub actual_quantity: Option<i32>,
+    pub variance: Option<i32>,
+    pub notes: Option<String>,
+    pub audited_at: Option<NaiveDateTime>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum AuditStatus {
+    Pending,
+    InProgress,
+    Completed,
+    Cancelled,
+}
+
+impl std::fmt::Display for AuditStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AuditStatus::Pending => write!(f, "pending"),
+            AuditStatus::InProgress => write!(f, "in_progress"),
+            AuditStatus::Completed => write!(f, "completed"),
+            AuditStatus::Cancelled => write!(f, "cancelled"),
         }
     }
 }

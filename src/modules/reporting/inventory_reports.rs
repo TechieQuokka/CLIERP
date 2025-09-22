@@ -6,7 +6,7 @@ use super::engine::*;
 pub struct InventoryReportsGenerator;
 
 impl ReportGenerator for InventoryReportsGenerator {
-    fn generate_report(&self, config: ReportConfig) -> Result<ReportResult> {
+    fn generate_report(&self, config: ReportConfig) -> CLIERPResult<ReportResult> {
         match config.title.as_str() {
             "stock_status" => self.generate_stock_status_report(config),
             "stock_movement" => self.generate_stock_movement_report(config),
@@ -88,7 +88,7 @@ impl InventoryReportsGenerator {
         Self
     }
 
-    fn generate_stock_status_report(&self, config: ReportConfig) -> Result<ReportResult> {
+    fn generate_stock_status_report(&self, config: ReportConfig) -> CLIERPResult<ReportResult> {
         let sections = vec![
             ReportSection {
                 title: "Current Stock Levels".to_string(),
@@ -214,7 +214,7 @@ impl InventoryReportsGenerator {
         })
     }
 
-    fn generate_stock_movement_report(&self, config: ReportConfig) -> Result<ReportResult> {
+    fn generate_stock_movement_report(&self, config: ReportConfig) -> CLIERPResult<ReportResult> {
         let table_data = TableData {
             headers: vec![
                 "Date".to_string(),
@@ -330,7 +330,7 @@ impl InventoryReportsGenerator {
         })
     }
 
-    fn generate_inventory_valuation_report(&self, config: ReportConfig) -> Result<ReportResult> {
+    fn generate_inventory_valuation_report(&self, config: ReportConfig) -> CLIERPResult<ReportResult> {
         let sections = vec![
             ReportSection {
                 title: "Valuation by Category".to_string(),
@@ -464,7 +464,7 @@ impl InventoryReportsGenerator {
         })
     }
 
-    fn generate_purchase_analysis_report(&self, config: ReportConfig) -> Result<ReportResult> {
+    fn generate_purchase_analysis_report(&self, config: ReportConfig) -> CLIERPResult<ReportResult> {
         let table_data = TableData {
             headers: vec![
                 "Month".to_string(),
@@ -564,7 +564,7 @@ impl InventoryReportsGenerator {
         })
     }
 
-    fn generate_supplier_performance_report(&self, config: ReportConfig) -> Result<ReportResult> {
+    fn generate_supplier_performance_report(&self, config: ReportConfig) -> CLIERPResult<ReportResult> {
         let table_data = TableData {
             headers: vec![
                 "Supplier".to_string(),
@@ -673,7 +673,7 @@ impl InventoryReportsGenerator {
         })
     }
 
-    fn generate_abc_analysis_report(&self, config: ReportConfig) -> Result<ReportResult> {
+    fn generate_abc_analysis_report(&self, config: ReportConfig) -> CLIERPResult<ReportResult> {
         let sections = vec![
             ReportSection {
                 title: "ABC Classification Results".to_string(),

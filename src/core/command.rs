@@ -69,9 +69,7 @@ impl CommandRegistry {
 
         // Check authentication requirements
         if command.requires_auth() && user.is_none() {
-            return Err(CLIERPError::Authentication(
-                "Authentication required".to_string(),
-            ));
+            return Err(CLIERPError::AuthenticationRequired);
         }
 
         // Check role requirements

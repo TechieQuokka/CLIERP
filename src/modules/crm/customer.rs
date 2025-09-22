@@ -300,42 +300,69 @@ impl CustomerService {
             validate_email(email)?;
         }
 
-        // Build update query
+        // Build update query - update each field individually
         use crate::database::schema::customers::dsl::*;
-        let mut update_query = diesel::update(customers.find(customer_id));
+
+        let current_time = Utc::now().naive_utc();
 
         if let Some(name_val) = name {
-            update_query = update_query.set(name.eq(name_val));
+            diesel::update(customers.find(customer_id))
+                .set(name.eq(name_val))
+                .execute(conn)?;
         }
+
         if let Some(email_val) = email {
-            update_query = update_query.set(email.eq(email_val.map(|s| s.to_string())));
+            diesel::update(customers.find(customer_id))
+                .set(email.eq(email_val.map(|s| s.to_string())))
+                .execute(conn)?;
         }
+
         if let Some(phone_val) = phone {
-            update_query = update_query.set(phone.eq(phone_val.map(|s| s.to_string())));
+            diesel::update(customers.find(customer_id))
+                .set(phone.eq(phone_val.map(|s| s.to_string())))
+                .execute(conn)?;
         }
+
         if let Some(address_val) = address {
-            update_query = update_query.set(address.eq(address_val.map(|s| s.to_string())));
+            diesel::update(customers.find(customer_id))
+                .set(address.eq(address_val.map(|s| s.to_string())))
+                .execute(conn)?;
         }
+
         if let Some(company_val) = company_name {
-            update_query = update_query.set(company_name.eq(company_val.map(|s| s.to_string())));
+            diesel::update(customers.find(customer_id))
+                .set(company_name.eq(company_val.map(|s| s.to_string())))
+                .execute(conn)?;
         }
+
         if let Some(tax_val) = tax_id {
-            update_query = update_query.set(tax_id.eq(tax_val.map(|s| s.to_string())));
+            diesel::update(customers.find(customer_id))
+                .set(tax_id.eq(tax_val.map(|s| s.to_string())))
+                .execute(conn)?;
         }
+
         if let Some(limit_val) = credit_limit {
-            update_query = update_query.set(credit_limit.eq(limit_val));
+            diesel::update(customers.find(customer_id))
+                .set(credit_limit.eq(limit_val))
+                .execute(conn)?;
         }
+
         if let Some(status_val) = status {
-            update_query = update_query.set(status.eq(status_val.to_string()));
+            diesel::update(customers.find(customer_id))
+                .set(status.eq(status_val.to_string()))
+                .execute(conn)?;
         }
+
         if let Some(notes_val) = notes {
-            update_query = update_query.set(notes.eq(notes_val.map(|s| s.to_string())));
+            diesel::update(customers.find(customer_id))
+                .set(notes.eq(notes_val.map(|s| s.to_string())))
+                .execute(conn)?;
         }
 
         // Always update the updated_at timestamp
-        update_query = update_query.set(updated_at.eq(Utc::now().naive_utc()));
-
-        update_query.execute(conn)?;
+        diesel::update(customers.find(customer_id))
+            .set(updated_at.eq(current_time))
+            .execute(conn)?;
 
         // Get the updated customer
         customers::table

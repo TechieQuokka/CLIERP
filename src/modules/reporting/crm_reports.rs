@@ -6,7 +6,7 @@ use super::engine::*;
 pub struct CRMReportsGenerator;
 
 impl ReportGenerator for CRMReportsGenerator {
-    fn generate_report(&self, config: ReportConfig) -> Result<ReportResult> {
+    fn generate_report(&self, config: ReportConfig) -> CLIERPResult<ReportResult> {
         match config.title.as_str() {
             "customer_analysis" => self.generate_customer_analysis_report(config),
             "sales_pipeline" => self.generate_sales_pipeline_report(config),

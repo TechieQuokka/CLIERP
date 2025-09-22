@@ -359,42 +359,69 @@ impl LeadService {
             }
         }
 
-        // Build update query
+        // Build update query - update each field individually
         use crate::database::schema::leads::dsl::*;
-        let mut update_query = diesel::update(leads.find(lead_id));
+
+        let current_time = Utc::now().naive_utc();
 
         if let Some(title_val) = title {
-            update_query = update_query.set(title.eq(title_val));
+            diesel::update(leads.find(lead_id))
+                .set(title.eq(title_val))
+                .execute(conn)?;
         }
+
         if let Some(customer_val) = customer_id {
-            update_query = update_query.set(customer_id.eq(*customer_val));
+            diesel::update(leads.find(lead_id))
+                .set(customer_id.eq(*customer_val))
+                .execute(conn)?;
         }
+
         if let Some(source_val) = lead_source {
-            update_query = update_query.set(lead_source.eq(source_val));
+            diesel::update(leads.find(lead_id))
+                .set(lead_source.eq(source_val))
+                .execute(conn)?;
         }
+
         if let Some(value_val) = estimated_value {
-            update_query = update_query.set(estimated_value.eq(*value_val));
+            diesel::update(leads.find(lead_id))
+                .set(estimated_value.eq(*value_val))
+                .execute(conn)?;
         }
+
         if let Some(date_val) = expected_close_date {
-            update_query = update_query.set(expected_close_date.eq(*date_val));
+            diesel::update(leads.find(lead_id))
+                .set(expected_close_date.eq(*date_val))
+                .execute(conn)?;
         }
+
         if let Some(priority_val) = priority {
-            update_query = update_query.set(priority.eq(priority_val.to_string()));
+            diesel::update(leads.find(lead_id))
+                .set(priority.eq(priority_val.to_string()))
+                .execute(conn)?;
         }
+
         if let Some(assigned_val) = assigned_to {
-            update_query = update_query.set(assigned_to.eq(*assigned_val));
+            diesel::update(leads.find(lead_id))
+                .set(assigned_to.eq(*assigned_val))
+                .execute(conn)?;
         }
+
         if let Some(desc_val) = description {
-            update_query = update_query.set(description.eq(desc_val.map(|s| s.to_string())));
+            diesel::update(leads.find(lead_id))
+                .set(description.eq(desc_val.map(|s| s.to_string())))
+                .execute(conn)?;
         }
+
         if let Some(notes_val) = notes {
-            update_query = update_query.set(notes.eq(notes_val.map(|s| s.to_string())));
+            diesel::update(leads.find(lead_id))
+                .set(notes.eq(notes_val.map(|s| s.to_string())))
+                .execute(conn)?;
         }
 
         // Always update the updated_at timestamp
-        update_query = update_query.set(updated_at.eq(Utc::now().naive_utc()));
-
-        update_query.execute(conn)?;
+        diesel::update(leads.find(lead_id))
+            .set(updated_at.eq(current_time))
+            .execute(conn)?;
 
         // Get the updated lead
         leads::table

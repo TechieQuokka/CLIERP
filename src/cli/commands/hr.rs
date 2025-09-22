@@ -1,5 +1,5 @@
 use crate::core::{auth::AuthenticatedUser, command::Command, result::CLIERPResult};
-use crate::database::connection::DatabaseManager;
+use crate::database::connection::{DatabaseManager, get_connection};
 use crate::modules::hr::department::{DepartmentService, DepartmentWithEmployeeCount};
 use crate::utils::formatting::format_table;
 use chrono::NaiveDate;
@@ -28,8 +28,7 @@ impl Command for HrDeptListCommand {
     ) -> CLIERPResult<()> {
         let _user = user.ok_or_else(|| crate::core::error::CLIERPError::AuthenticationRequired)?;
 
-        let db_manager = DatabaseManager::new()?;
-        let mut conn = db_manager.get_connection()?;
+        let mut conn = get_connection()?;
         let dept_service = DepartmentService::new();
 
         let departments = dept_service.list_departments_with_employee_count(&mut conn)?;
@@ -80,8 +79,7 @@ impl Command for HrDeptAddCommand {
     ) -> CLIERPResult<()> {
         let _user = user.ok_or_else(|| crate::core::error::CLIERPError::AuthenticationRequired)?;
 
-        let db_manager = DatabaseManager::new()?;
-        let mut conn = db_manager.get_connection()?;
+        let mut conn = get_connection()?;
         let dept_service = DepartmentService::new();
 
         let department = dept_service.create_department(
@@ -149,8 +147,7 @@ impl Command for HrDeptUpdateCommand {
     ) -> CLIERPResult<()> {
         let _user = user.ok_or_else(|| crate::core::error::CLIERPError::AuthenticationRequired)?;
 
-        let db_manager = DatabaseManager::new()?;
-        let mut conn = db_manager.get_connection()?;
+        let mut conn = get_connection()?;
         let dept_service = DepartmentService::new();
 
         let department = dept_service.update_department(
@@ -206,8 +203,7 @@ impl Command for HrDeptDeleteCommand {
     ) -> CLIERPResult<()> {
         let _user = user.ok_or_else(|| crate::core::error::CLIERPError::AuthenticationRequired)?;
 
-        let db_manager = DatabaseManager::new()?;
-        let mut conn = db_manager.get_connection()?;
+        let mut conn = get_connection()?;
         let dept_service = DepartmentService::new();
 
         dept_service.delete_department(&mut conn, self.id)?;
@@ -252,8 +248,7 @@ impl Command for HrEmployeeListCommand {
 
         let _user = user.ok_or_else(|| crate::core::error::CLIERPError::AuthenticationRequired)?;
 
-        let db_manager = DatabaseManager::new()?;
-        let mut conn = db_manager.get_connection()?;
+        let mut conn = get_connection()?;
         let emp_service = EmployeeService::new();
 
         let employees = match self.department_id {
@@ -325,8 +320,7 @@ impl Command for HrEmployeeAddCommand {
 
         let _user = user.ok_or_else(|| crate::core::error::CLIERPError::AuthenticationRequired)?;
 
-        let db_manager = DatabaseManager::new()?;
-        let mut conn = db_manager.get_connection()?;
+        let mut conn = get_connection()?;
         let emp_service = EmployeeService::new();
 
         let request = crate::modules::hr::employee::CreateEmployeeRequest {
@@ -396,8 +390,7 @@ impl Command for HrEmployeeShowCommand {
 
         let _user = user.ok_or_else(|| crate::core::error::CLIERPError::AuthenticationRequired)?;
 
-        let db_manager = DatabaseManager::new()?;
-        let mut conn = db_manager.get_connection()?;
+        let mut conn = get_connection()?;
         let emp_service = EmployeeService::new();
 
         let employee = if let Some(emp_id) = self.id {
@@ -480,8 +473,7 @@ impl Command for HrEmployeeUpdateCommand {
 
         let _user = user.ok_or_else(|| crate::core::error::CLIERPError::AuthenticationRequired)?;
 
-        let db_manager = DatabaseManager::new()?;
-        let mut conn = db_manager.get_connection()?;
+        let mut conn = get_connection()?;
         let emp_service = EmployeeService::new();
 
         let request = crate::modules::hr::employee::UpdateEmployeeRequest {
@@ -547,8 +539,7 @@ impl Command for HrEmployeeSearchCommand {
 
         let _user = user.ok_or_else(|| crate::core::error::CLIERPError::AuthenticationRequired)?;
 
-        let db_manager = DatabaseManager::new()?;
-        let mut conn = db_manager.get_connection()?;
+        let mut conn = get_connection()?;
         let emp_service = EmployeeService::new();
 
         let employees = emp_service.search_employees(&mut conn, &self.query)?;
@@ -596,8 +587,7 @@ impl Command for HrEmployeeDeleteCommand {
 
         let _user = user.ok_or_else(|| crate::core::error::CLIERPError::AuthenticationRequired)?;
 
-        let db_manager = DatabaseManager::new()?;
-        let mut conn = db_manager.get_connection()?;
+        let mut conn = get_connection()?;
         let emp_service = EmployeeService::new();
 
         emp_service.delete_employee(&mut conn, self.id)?;
@@ -643,8 +633,7 @@ impl Command for HrDeptExportCommand {
 
         let _user = user.ok_or_else(|| crate::core::error::CLIERPError::AuthenticationRequired)?;
 
-        let db_manager = DatabaseManager::new()?;
-        let mut conn = db_manager.get_connection()?;
+        let mut conn = get_connection()?;
         let dept_service = DepartmentService::new();
 
         let departments = dept_service.list_departments_with_employee_count(&mut conn)?;
@@ -731,8 +720,7 @@ impl Command for HrEmployeeExportCommand {
 
         let _user = user.ok_or_else(|| crate::core::error::CLIERPError::AuthenticationRequired)?;
 
-        let db_manager = DatabaseManager::new()?;
-        let mut conn = db_manager.get_connection()?;
+        let mut conn = get_connection()?;
         let emp_service = EmployeeService::new();
 
         let employees = match self.department_id {
@@ -843,7 +831,7 @@ fn display_departments_table(departments: &[DepartmentWithEmployeeCount]) {
         })
         .collect();
 
-    format_table(&headers, &rows);
+    format_table(&headers[..], &rows);
 }
 
 fn display_employees_table(employees: &[crate::modules::hr::employee::EmployeeWithDepartment]) {
@@ -883,7 +871,7 @@ fn display_employees_table(employees: &[crate::modules::hr::employee::EmployeeWi
         })
         .collect();
 
-    format_table(&headers, &rows);
+    format_table(&headers[..], &rows);
 }
 
 fn display_employee_detail(emp_with_dept: &crate::modules::hr::employee::EmployeeWithDepartment) {

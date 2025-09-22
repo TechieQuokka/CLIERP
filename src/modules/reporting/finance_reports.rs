@@ -6,7 +6,7 @@ use super::engine::*;
 pub struct FinanceReportsGenerator;
 
 impl ReportGenerator for FinanceReportsGenerator {
-    fn generate_report(&self, config: ReportConfig) -> Result<ReportResult> {
+    fn generate_report(&self, config: ReportConfig) -> CLIERPResult<ReportResult> {
         match config.title.as_str() {
             "income_statement" => self.generate_income_statement(config),
             "balance_sheet" => self.generate_balance_sheet(config),

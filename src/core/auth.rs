@@ -1,6 +1,6 @@
 use crate::core::{config::CLIERPConfig, error::CLIERPError, result::CLIERPResult};
 use crate::database::{
-    connection::DatabaseManager,
+    connection::{DatabaseManager, get_connection},
     models::{NewUser, User, UserRole},
     schema::users,
 };
@@ -70,8 +70,7 @@ impl AuthService {
             is_active: true,
         };
 
-        let db_manager = DatabaseManager::new()?;
-        let mut conn = db_manager.get_connection()?;
+        let mut conn = get_connection()?;
 
         diesel::insert_into(users::table)
             .values(&new_user)
@@ -87,8 +86,7 @@ impl AuthService {
 
     /// Authenticate user with username and password
     pub fn authenticate(&self, username: &str, password: &str) -> CLIERPResult<AuthenticatedUser> {
-        let db_manager = DatabaseManager::new()?;
-        let mut conn = db_manager.get_connection()?;
+        let mut conn = get_connection()?;
 
         let user: User = users::table
             .filter(users::username.eq(username))
@@ -158,8 +156,7 @@ impl AuthService {
 
     /// Get user by ID
     pub fn get_user_by_id(&self, user_id: i32) -> CLIERPResult<User> {
-        let db_manager = DatabaseManager::new()?;
-        let mut conn = db_manager.get_connection()?;
+        let mut conn = get_connection()?;
 
         users::table
             .filter(users::id.eq(user_id))
@@ -192,8 +189,7 @@ impl AuthService {
 
     /// Create default admin user if none exists
     pub fn create_default_admin(&self) -> CLIERPResult<()> {
-        let db_manager = DatabaseManager::new()?;
-        let mut conn = db_manager.get_connection()?;
+        let mut conn = get_connection()?;
 
         // Check if any admin user exists
         let admin_count: i64 = users::table

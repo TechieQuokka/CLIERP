@@ -113,7 +113,7 @@ pub struct ReportMetadata {
 }
 
 pub trait ReportGenerator {
-    fn generate_report(&self, config: ReportConfig) -> Result<ReportResult>;
+    fn generate_report(&self, config: ReportConfig) -> CLIERPResult<ReportResult>;
     fn get_available_filters(&self) -> Vec<FilterDefinition>;
     fn get_report_info(&self) -> ReportInfo;
 }

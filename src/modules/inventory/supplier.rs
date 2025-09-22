@@ -187,36 +187,61 @@ impl SupplierService {
             validate_email(email)?;
         }
 
-        // Build update query
+        // Build update query dynamically
         use crate::database::schema::suppliers::dsl::*;
-        let mut target = diesel::update(suppliers.find(supplier_id));
 
+        let current_time = Utc::now().naive_utc();
+
+        // First, update all non-None fields in separate statements if needed
+        // Or create a single update with all fields including timestamp
+
+        // For simplicity, let's update each field individually when provided
         if let Some(name_val) = name {
-            target = target.set(name.eq(name_val));
+            diesel::update(suppliers.find(supplier_id))
+                .set(name.eq(name_val))
+                .execute(conn)?;
         }
+
         if let Some(contact_val) = contact_person {
-            target = target.set(contact_person.eq(contact_val.map(|s| s.to_string())));
+            diesel::update(suppliers.find(supplier_id))
+                .set(contact_person.eq(contact_val.map(|s| s.to_string())))
+                .execute(conn)?;
         }
+
         if let Some(email_val) = email {
-            target = target.set(email.eq(email_val.map(|s| s.to_string())));
+            diesel::update(suppliers.find(supplier_id))
+                .set(email.eq(email_val.map(|s| s.to_string())))
+                .execute(conn)?;
         }
+
         if let Some(phone_val) = phone {
-            target = target.set(phone.eq(phone_val.map(|s| s.to_string())));
+            diesel::update(suppliers.find(supplier_id))
+                .set(phone.eq(phone_val.map(|s| s.to_string())))
+                .execute(conn)?;
         }
+
         if let Some(address_val) = address {
-            target = target.set(address.eq(address_val.map(|s| s.to_string())));
+            diesel::update(suppliers.find(supplier_id))
+                .set(address.eq(address_val.map(|s| s.to_string())))
+                .execute(conn)?;
         }
+
         if let Some(payment_val) = payment_terms {
-            target = target.set(payment_terms.eq(payment_val.map(|s| s.to_string())));
+            diesel::update(suppliers.find(supplier_id))
+                .set(payment_terms.eq(payment_val.map(|s| s.to_string())))
+                .execute(conn)?;
         }
+
         if let Some(status_val) = status {
-            target = target.set(status.eq(status_val.to_string()));
+            diesel::update(suppliers.find(supplier_id))
+                .set(status.eq(status_val.to_string()))
+                .execute(conn)?;
         }
 
-        // Always update the updated_at timestamp
-        target = target.set(updated_at.eq(Utc::now().naive_utc()));
-
-        target.execute(conn)?;
+        // Always update the timestamp
+        diesel::update(suppliers.find(supplier_id))
+            .set(updated_at.eq(current_time))
+            .execute(conn)?;
 
         // Get the updated supplier
         crate::database::schema::suppliers::table

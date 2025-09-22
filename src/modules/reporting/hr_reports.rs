@@ -9,7 +9,7 @@ use super::engine::*;
 pub struct HRReportsGenerator;
 
 impl ReportGenerator for HRReportsGenerator {
-    fn generate_report(&self, config: ReportConfig) -> Result<ReportResult> {
+    fn generate_report(&self, config: ReportConfig) -> CLIERPResult<ReportResult> {
         let start_time = std::time::Instant::now();
 
         match config.title.as_str() {

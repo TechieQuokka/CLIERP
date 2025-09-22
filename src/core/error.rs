@@ -59,6 +59,12 @@ pub enum CLIERPError {
     #[error("Already exists: {0}")]
     AlreadyExists(String),
 
+    #[error("Business logic error: {0}")]
+    BusinessLogic(String),
+
+    #[error("Database error: {0}")]
+    DatabaseError(String),
+
     #[error("Permission denied: {0}")]
     PermissionDenied(String),
 

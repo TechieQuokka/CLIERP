@@ -1,11 +1,11 @@
 use diesel::prelude::*;
 use chrono::{Utc, NaiveDate};
-use crate::core::result::Result;
+use crate::core::result::CLIERPResult;
 use crate::database::{
-    DbConnection, Lead, NewLead, LeadStatus, LeadPriority, LeadWithCustomer, Customer
+    DatabaseConnection, Lead, NewLead, LeadStatus, LeadPriority, LeadWithCustomer, Customer
 };
 use crate::database::schema::{leads, customers, employees};
-use crate::utils::validation::Validator;
+use crate::utils::validation::validate_required_string;
 use crate::utils::pagination::{Paginate, PaginationParams, PaginatedResult};
 use crate::utils::filters::FilterOptions;
 
@@ -13,7 +13,7 @@ pub struct LeadService;
 
 impl LeadService {
     pub fn create_lead(
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         title: &str,
         customer_id: Option<i32>,
         lead_source: &str,
@@ -70,7 +70,7 @@ impl LeadService {
             .map_err(Into::into)
     }
 
-    pub fn get_lead_by_id(conn: &mut DbConnection, lead_id: i32) -> Result<Option<Lead>> {
+    pub fn get_lead_by_id(conn: &mut DatabaseConnection, lead_id: i32) -> Result<Option<Lead>> {
         leads::table
             .find(lead_id)
             .first::<Lead>(conn)
@@ -78,7 +78,7 @@ impl LeadService {
             .map_err(Into::into)
     }
 
-    pub fn get_lead_with_customer(conn: &mut DbConnection, lead_id: i32) -> Result<Option<LeadWithCustomer>> {
+    pub fn get_lead_with_customer(conn: &mut DatabaseConnection, lead_id: i32) -> Result<Option<LeadWithCustomer>> {
         let lead = Self::get_lead_by_id(conn, lead_id)?;
 
         if let Some(lead) = lead {
@@ -114,7 +114,7 @@ impl LeadService {
     }
 
     pub fn list_leads(
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         filters: &FilterOptions,
         pagination: &PaginationParams,
     ) -> Result<PaginatedResult<LeadWithCustomer>> {
@@ -230,13 +230,13 @@ impl LeadService {
     }
 
     pub fn update_lead_status(
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         lead_id: i32,
         new_status: LeadStatus,
         notes: Option<&str>,
     ) -> Result<Lead> {
         let lead = Self::get_lead_by_id(conn, lead_id)?
-            .ok_or_else(|| crate::core::error::AppError::NotFound(
+            .ok_or_else(|| crate::core::error::CLIERPError::NotFound(
                 format!("Lead with ID {} not found", lead_id)
             ))?;
 
@@ -266,7 +266,7 @@ impl LeadService {
     }
 
     pub fn update_lead(
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         lead_id: i32,
         title: Option<&str>,
         customer_id: Option<Option<i32>>,
@@ -280,7 +280,7 @@ impl LeadService {
     ) -> Result<Lead> {
         // Check if lead exists
         let _lead = Self::get_lead_by_id(conn, lead_id)?
-            .ok_or_else(|| crate::core::error::AppError::NotFound(
+            .ok_or_else(|| crate::core::error::CLIERPError::NotFound(
                 format!("Lead with ID {} not found", lead_id)
             ))?;
 
@@ -345,7 +345,7 @@ impl LeadService {
     }
 
     pub fn assign_lead(
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         lead_id: i32,
         assigned_to: i32,
     ) -> Result<Lead> {
@@ -364,7 +364,7 @@ impl LeadService {
             .map_err(Into::into)
     }
 
-    pub fn delete_lead(conn: &mut DbConnection, lead_id: i32) -> Result<bool> {
+    pub fn delete_lead(conn: &mut DatabaseConnection, lead_id: i32) -> Result<bool> {
         // Check if lead has any deals
         use crate::database::schema::deals;
         let has_deals = deals::table
@@ -374,7 +374,7 @@ impl LeadService {
             .is_some();
 
         if has_deals {
-            return Err(crate::core::error::AppError::BusinessLogic(
+            return Err(crate::core::error::CLIERPError::BusinessLogic(
                 "Cannot delete lead with existing deals.".to_string()
             ));
         }
@@ -386,7 +386,7 @@ impl LeadService {
     }
 
     pub fn get_leads_by_status(
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         status: LeadStatus,
     ) -> Result<Vec<LeadWithCustomer>> {
         let results: Vec<(Lead, Option<Customer>, Option<String>)> = leads::table
@@ -413,7 +413,7 @@ impl LeadService {
         Ok(leads_with_customer)
     }
 
-    pub fn get_lead_statistics(conn: &mut DbConnection) -> Result<LeadStatistics> {
+    pub fn get_lead_statistics(conn: &mut DatabaseConnection) -> Result<LeadStatistics> {
         // Total leads count
         let total_leads = leads::table
             .count()

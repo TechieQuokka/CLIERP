@@ -1,8 +1,8 @@
 use clap::{Args, Subcommand};
 use chrono::{NaiveDate, NaiveDateTime};
-use crate::core::result::Result;
+use crate::core::result::CLIERPResult;
 use crate::database::{
-    DbConnection, CustomerType, CustomerStatus, LeadStatus, LeadPriority,
+    DatabaseConnection, CustomerType, CustomerStatus, LeadStatus, LeadPriority,
     DealStage, CampaignType, CampaignStatus, ActivityType
 };
 use crate::modules::crm::{
@@ -447,7 +447,7 @@ pub enum ActivityAction {
 }
 
 pub fn execute_crm_extended_command(
-    conn: &mut DbConnection,
+    conn: &mut DatabaseConnection,
     cmd: CrmExtendedCommands,
 ) -> Result<()> {
     match cmd.action {
@@ -462,7 +462,7 @@ pub fn execute_crm_extended_command(
     }
 }
 
-fn execute_customer_command(conn: &mut DbConnection, action: CustomerAction) -> Result<()> {
+fn execute_customer_command(conn: &mut DatabaseConnection, action: CustomerAction) -> Result<()> {
     match action {
         CustomerAction::Create {
             name,
@@ -534,7 +534,7 @@ fn execute_customer_command(conn: &mut DbConnection, action: CustomerAction) -> 
                     None
                 }
             } else {
-                return Err(crate::core::error::AppError::Validation(
+                return Err(crate::core::error::CLIERPError::Validation(
                     "Either --id or --code must be provided".to_string()
                 ));
             };
@@ -626,7 +626,7 @@ fn execute_customer_command(conn: &mut DbConnection, action: CustomerAction) -> 
     Ok(())
 }
 
-fn execute_deal_command(conn: &mut DbConnection, action: DealAction) -> Result<()> {
+fn execute_deal_command(conn: &mut DatabaseConnection, action: DealAction) -> Result<()> {
     match action {
         DealAction::Create {
             lead_id,
@@ -789,7 +789,7 @@ fn execute_deal_command(conn: &mut DbConnection, action: DealAction) -> Result<(
     Ok(())
 }
 
-fn execute_lead_command(conn: &mut DbConnection, action: LeadAction) -> Result<()> {
+fn execute_lead_command(conn: &mut DatabaseConnection, action: LeadAction) -> Result<()> {
     match action {
         LeadAction::Create {
             title,
@@ -825,7 +825,7 @@ fn execute_lead_command(conn: &mut DbConnection, action: LeadAction) -> Result<(
     Ok(())
 }
 
-fn execute_campaign_command(conn: &mut DbConnection, action: CampaignAction) -> Result<()> {
+fn execute_campaign_command(conn: &mut DatabaseConnection, action: CampaignAction) -> Result<()> {
     match action {
         CampaignAction::Create {
             name,
@@ -882,7 +882,7 @@ fn execute_campaign_command(conn: &mut DbConnection, action: CampaignAction) -> 
     Ok(())
 }
 
-fn execute_activity_command(conn: &mut DbConnection, action: ActivityAction) -> Result<()> {
+fn execute_activity_command(conn: &mut DatabaseConnection, action: ActivityAction) -> Result<()> {
     match action {
         ActivityAction::Create {
             activity_type,
@@ -952,7 +952,7 @@ fn execute_activity_command(conn: &mut DbConnection, action: ActivityAction) -> 
     Ok(())
 }
 
-fn execute_dashboard_command(conn: &mut DbConnection) -> Result<()> {
+fn execute_dashboard_command(conn: &mut DatabaseConnection) -> Result<()> {
     println!("=== CRM Dashboard ===");
     println!();
 
@@ -1012,7 +1012,7 @@ fn execute_dashboard_command(conn: &mut DbConnection) -> Result<()> {
     Ok(())
 }
 
-fn execute_pipeline_command(conn: &mut DbConnection) -> Result<()> {
+fn execute_pipeline_command(conn: &mut DatabaseConnection) -> Result<()> {
     println!("=== Sales Pipeline ===");
     println!();
 
@@ -1031,7 +1031,7 @@ fn execute_pipeline_command(conn: &mut DbConnection) -> Result<()> {
     Ok(())
 }
 
-fn execute_performance_command(conn: &mut DbConnection) -> Result<()> {
+fn execute_performance_command(conn: &mut DatabaseConnection) -> Result<()> {
     println!("=== Performance Overview ===");
     println!();
 

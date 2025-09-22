@@ -1,11 +1,11 @@
 use diesel::prelude::*;
 use chrono::{Utc, NaiveDate};
-use crate::core::result::Result;
+use crate::core::result::CLIERPResult;
 use crate::database::{
-    DbConnection, Deal, NewDeal, DealStage, Lead, Customer, Employee
+    DatabaseConnection, Deal, NewDeal, DealStage, Lead, Customer, Employee
 };
 use crate::database::schema::{deals, leads, customers, employees};
-use crate::utils::validation::Validator;
+use crate::utils::validation::validate_required_string;
 use crate::utils::pagination::{Paginate, PaginationParams, PaginatedResult};
 use crate::utils::filters::FilterOptions;
 
@@ -13,7 +13,7 @@ pub struct DealService;
 
 impl DealService {
     pub fn create_deal(
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         lead_id: i32,
         title: &str,
         deal_value: i32,
@@ -62,7 +62,7 @@ impl DealService {
             .map_err(Into::into)
     }
 
-    pub fn get_deal_by_id(conn: &mut DbConnection, deal_id: i32) -> Result<Option<Deal>> {
+    pub fn get_deal_by_id(conn: &mut DatabaseConnection, deal_id: i32) -> Result<Option<Deal>> {
         deals::table
             .find(deal_id)
             .first::<Deal>(conn)
@@ -70,7 +70,7 @@ impl DealService {
             .map_err(Into::into)
     }
 
-    pub fn get_deal_with_details(conn: &mut DbConnection, deal_id: i32) -> Result<Option<DealWithDetails>> {
+    pub fn get_deal_with_details(conn: &mut DatabaseConnection, deal_id: i32) -> Result<Option<DealWithDetails>> {
         let deal = Self::get_deal_by_id(conn, deal_id)?;
 
         if let Some(deal) = deal {
@@ -104,7 +104,7 @@ impl DealService {
     }
 
     pub fn list_deals(
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         filters: &FilterOptions,
         pagination: &PaginationParams,
     ) -> Result<PaginatedResult<DealWithDetails>> {
@@ -212,13 +212,13 @@ impl DealService {
     }
 
     pub fn update_deal_stage(
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         deal_id: i32,
         new_stage: DealStage,
         notes: Option<&str>,
     ) -> Result<Deal> {
         let deal = Self::get_deal_by_id(conn, deal_id)?
-            .ok_or_else(|| crate::core::error::AppError::NotFound(
+            .ok_or_else(|| crate::core::error::CLIERPError::NotFound(
                 format!("Deal with ID {} not found", deal_id)
             ))?;
 
@@ -255,7 +255,7 @@ impl DealService {
     }
 
     pub fn update_deal(
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         deal_id: i32,
         title: Option<&str>,
         deal_value: Option<i32>,
@@ -266,7 +266,7 @@ impl DealService {
     ) -> Result<Deal> {
         // Check if deal exists
         let _deal = Self::get_deal_by_id(conn, deal_id)?
-            .ok_or_else(|| crate::core::error::AppError::NotFound(
+            .ok_or_else(|| crate::core::error::CLIERPError::NotFound(
                 format!("Deal with ID {} not found", deal_id)
             ))?;
 
@@ -315,7 +315,7 @@ impl DealService {
             .map_err(Into::into)
     }
 
-    pub fn delete_deal(conn: &mut DbConnection, deal_id: i32) -> Result<bool> {
+    pub fn delete_deal(conn: &mut DatabaseConnection, deal_id: i32) -> Result<bool> {
         let deleted_rows = diesel::delete(deals::table.find(deal_id))
             .execute(conn)?;
 
@@ -323,7 +323,7 @@ impl DealService {
     }
 
     pub fn get_deals_by_stage(
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         stage: DealStage,
     ) -> Result<Vec<DealWithDetails>> {
         let results: Vec<(Deal, Lead, Option<Customer>, Option<String>)> = deals::table
@@ -353,7 +353,7 @@ impl DealService {
         Ok(deals_with_details)
     }
 
-    pub fn get_sales_pipeline(conn: &mut DbConnection) -> Result<Vec<PipelineStage>> {
+    pub fn get_sales_pipeline(conn: &mut DatabaseConnection) -> Result<Vec<PipelineStage>> {
         use crate::database::DealStage as DS;
 
         let stages = vec![
@@ -393,7 +393,7 @@ impl DealService {
         Ok(pipeline)
     }
 
-    pub fn get_deal_statistics(conn: &mut DbConnection) -> Result<DealStatistics> {
+    pub fn get_deal_statistics(conn: &mut DatabaseConnection) -> Result<DealStatistics> {
         // Total deals count
         let total_deals = deals::table
             .count()

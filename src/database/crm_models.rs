@@ -393,6 +393,90 @@ pub struct CustomerSummary {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct CampaignWithStats {
+    pub campaign: Campaign,
+    pub total_leads: i64,
+    pub converted_leads: i64,
+    pub conversion_rate: f64,
+    pub total_revenue: i32,
+    pub roi: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ActivityWithDetails {
+    pub activity: Activity,
+    pub customer: Option<Customer>,
+    pub lead: Option<Lead>,
+    pub assigned_employee: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PipelineStage {
+    pub stage: String,
+    pub deal_count: i64,
+    pub total_value: i32,
+    pub average_value: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CampaignPerformance {
+    pub campaign_name: String,
+    pub campaign_code: String,
+    pub leads_generated: i64,
+    pub conversion_rate: f64,
+    pub roi: f64,
+}
+
+// Statistics structures
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CustomerStatistics {
+    pub total_customers: i64,
+    pub active_customers: i64,
+    pub business_customers: i64,
+    pub individual_customers: i64,
+    pub total_credit_limit: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct LeadStatistics {
+    pub total_leads: i64,
+    pub new_leads: i64,
+    pub qualified_leads: i64,
+    pub converted_leads: i64,
+    pub conversion_rate: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DealStatistics {
+    pub total_deals: i64,
+    pub active_deals: i64,
+    pub won_deals: i64,
+    pub lost_deals: i64,
+    pub total_value: i32,
+    pub total_won_value: i32,
+    pub average_deal_size: f64,
+    pub win_rate: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CampaignStatistics {
+    pub total_campaigns: i64,
+    pub active_campaigns: i64,
+    pub draft_campaigns: i64,
+    pub completed_campaigns: i64,
+    pub total_budget: i32,
+    pub total_actual_cost: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ActivityStatistics {
+    pub total_activities: i64,
+    pub pending_activities: i64,
+    pub completed_activities: i64,
+    pub overdue_activities: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct DealProduct {
     pub product_id: i32,
     pub quantity: i32,

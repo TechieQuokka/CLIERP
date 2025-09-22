@@ -1,12 +1,13 @@
 use diesel::prelude::*;
 use chrono::Utc;
-use crate::core::result::Result;
+use serde::Serialize;
+use crate::core::result::CLIERPResult;
 use crate::database::{
-    DbConnection, Customer, NewCustomer, CustomerType, CustomerStatus, CustomerWithStats,
+    DatabaseConnection, Customer, NewCustomer, CustomerType, CustomerStatus, CustomerWithStats,
     CustomerSummary
 };
 use crate::database::schema::{customers, leads, deals};
-use crate::utils::validation::Validator;
+use crate::utils::validation::{validate_email, validate_required_string};
 use crate::utils::pagination::{Paginate, PaginationParams, PaginatedResult};
 use crate::utils::filters::FilterOptions;
 
@@ -14,7 +15,7 @@ pub struct CustomerService;
 
 impl CustomerService {
     pub fn create_customer(
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         name: &str,
         customer_type: CustomerType,
         email: Option<&str>,
@@ -67,7 +68,7 @@ impl CustomerService {
             .map_err(Into::into)
     }
 
-    pub fn get_customer_by_id(conn: &mut DbConnection, customer_id: i32) -> Result<Option<Customer>> {
+    pub fn get_customer_by_id(conn: &mut DatabaseConnection, customer_id: i32) -> Result<Option<Customer>> {
         customers::table
             .find(customer_id)
             .first::<Customer>(conn)
@@ -75,7 +76,7 @@ impl CustomerService {
             .map_err(Into::into)
     }
 
-    pub fn get_customer_by_code(conn: &mut DbConnection, customer_code: &str) -> Result<Option<Customer>> {
+    pub fn get_customer_by_code(conn: &mut DatabaseConnection, customer_code: &str) -> Result<Option<Customer>> {
         customers::table
             .filter(customers::customer_code.eq(customer_code))
             .first::<Customer>(conn)
@@ -83,7 +84,7 @@ impl CustomerService {
             .map_err(Into::into)
     }
 
-    pub fn get_customer_with_stats(conn: &mut DbConnection, customer_id: i32) -> Result<Option<CustomerWithStats>> {
+    pub fn get_customer_with_stats(conn: &mut DatabaseConnection, customer_id: i32) -> Result<Option<CustomerWithStats>> {
         let customer = Self::get_customer_by_id(conn, customer_id)?;
 
         if let Some(customer) = customer {
@@ -125,7 +126,7 @@ impl CustomerService {
     }
 
     pub fn list_customers(
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         filters: &FilterOptions,
         pagination: &PaginationParams,
     ) -> Result<PaginatedResult<Customer>> {
@@ -186,7 +187,7 @@ impl CustomerService {
     }
 
     pub fn get_customer_summaries(
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         filters: &FilterOptions,
         pagination: &PaginationParams,
     ) -> Result<PaginatedResult<CustomerSummary>> {
@@ -242,7 +243,7 @@ impl CustomerService {
     }
 
     pub fn update_customer(
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         customer_id: i32,
         name: Option<&str>,
         email: Option<Option<&str>>,
@@ -256,7 +257,7 @@ impl CustomerService {
     ) -> Result<Customer> {
         // Check if customer exists
         let _customer = Self::get_customer_by_id(conn, customer_id)?
-            .ok_or_else(|| crate::core::error::AppError::NotFound(
+            .ok_or_else(|| crate::core::error::CLIERPError::NotFound(
                 format!("Customer with ID {} not found", customer_id)
             ))?;
 
@@ -314,7 +315,7 @@ impl CustomerService {
             .map_err(Into::into)
     }
 
-    pub fn delete_customer(conn: &mut DbConnection, customer_id: i32) -> Result<bool> {
+    pub fn delete_customer(conn: &mut DatabaseConnection, customer_id: i32) -> Result<bool> {
         // Check if customer has any leads or deals
         let has_leads = leads::table
             .filter(leads::customer_id.eq(customer_id))
@@ -323,7 +324,7 @@ impl CustomerService {
             .is_some();
 
         if has_leads {
-            return Err(crate::core::error::AppError::BusinessLogic(
+            return Err(crate::core::error::CLIERPError::BusinessLogic(
                 "Cannot delete customer with existing leads or deals. Set status to inactive instead.".to_string()
             ));
         }
@@ -334,7 +335,7 @@ impl CustomerService {
         Ok(deleted_rows > 0)
     }
 
-    pub fn search_customers(conn: &mut DbConnection, query: &str) -> Result<Vec<Customer>> {
+    pub fn search_customers(conn: &mut DatabaseConnection, query: &str) -> Result<Vec<Customer>> {
         customers::table
             .filter(
                 customers::name.like(format!("%{}%", query))
@@ -349,7 +350,7 @@ impl CustomerService {
             .map_err(Into::into)
     }
 
-    pub fn get_customer_statistics(conn: &mut DbConnection) -> Result<CustomerStatistics> {
+    pub fn get_customer_statistics(conn: &mut DatabaseConnection) -> Result<CustomerStatistics> {
         // Total customers count
         let total_customers = customers::table
             .count()
@@ -389,7 +390,7 @@ impl CustomerService {
         })
     }
 
-    fn generate_customer_code(conn: &mut DbConnection) -> Result<String> {
+    fn generate_customer_code(conn: &mut DatabaseConnection) -> Result<String> {
         let count = customers::table
             .count()
             .get_result::<i64>(conn)?;

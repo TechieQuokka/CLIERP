@@ -1,13 +1,13 @@
 use diesel::prelude::*;
 use chrono::{Utc, NaiveDate};
-use crate::core::result::Result;
+use crate::core::result::CLIERPResult;
 use crate::database::{
-    DbConnection, PurchaseOrder, NewPurchaseOrder, PurchaseItem, NewPurchaseItem,
+    DatabaseConnection, PurchaseOrder, NewPurchaseOrder, PurchaseItem, NewPurchaseItem,
     PurchaseOrderStatus, PurchaseItemStatus, PurchaseOrderWithItems, PurchaseItemWithProduct,
     PurchaseOrderSummary, Supplier, Product
 };
 use crate::database::schema::{purchase_orders, purchase_items, suppliers, products};
-use crate::utils::validation::Validator;
+use crate::utils::validation::validate_required_string;
 use crate::utils::pagination::{Paginate, PaginationParams, PaginatedResult};
 use crate::utils::filters::FilterOptions;
 
@@ -15,7 +15,7 @@ pub struct PurchaseOrderService;
 
 impl PurchaseOrderService {
     pub fn create_purchase_order(
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         supplier_id: i32,
         expected_date: Option<NaiveDate>,
         notes: Option<&str>,
@@ -27,7 +27,7 @@ impl PurchaseOrderService {
         validator.positive("supplier_id", supplier_id as f64)?;
 
         if items.is_empty() {
-            return Err(crate::core::error::AppError::ValidationError(
+            return Err(crate::core::error::CLIERPError::ValidationError(
                 "Purchase order must have at least one item".to_string()
             ));
         }
@@ -38,7 +38,7 @@ impl PurchaseOrderService {
             .first::<Supplier>(conn)?;
 
         if supplier.status != "active" {
-            return Err(crate::core::error::AppError::BusinessLogic(
+            return Err(crate::core::error::CLIERPError::BusinessLogic(
                 "Cannot create purchase order for inactive supplier".to_string()
             ));
         }
@@ -103,13 +103,13 @@ impl PurchaseOrderService {
 
             Ok((purchase_order, created_items))
         })
-        .map_err(|e| crate::core::error::AppError::DatabaseError(e.to_string()))
+        .map_err(|e| crate::core::error::CLIERPError::DatabaseError(e.to_string()))
         .and_then(|(po, items)| {
             Self::get_purchase_order_with_details(conn, po.id)
         })
     }
 
-    pub fn get_purchase_order_by_id(conn: &mut DbConnection, po_id: i32) -> Result<Option<PurchaseOrder>> {
+    pub fn get_purchase_order_by_id(conn: &mut DatabaseConnection, po_id: i32) -> Result<Option<PurchaseOrder>> {
         purchase_orders::table
             .find(po_id)
             .first::<PurchaseOrder>(conn)
@@ -117,7 +117,7 @@ impl PurchaseOrderService {
             .map_err(Into::into)
     }
 
-    pub fn get_purchase_order_by_number(conn: &mut DbConnection, po_number: &str) -> Result<Option<PurchaseOrder>> {
+    pub fn get_purchase_order_by_number(conn: &mut DatabaseConnection, po_number: &str) -> Result<Option<PurchaseOrder>> {
         purchase_orders::table
             .filter(purchase_orders::po_number.eq(po_number))
             .first::<PurchaseOrder>(conn)
@@ -126,11 +126,11 @@ impl PurchaseOrderService {
     }
 
     pub fn get_purchase_order_with_details(
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         po_id: i32,
     ) -> Result<PurchaseOrderWithItems> {
         let purchase_order = Self::get_purchase_order_by_id(conn, po_id)?
-            .ok_or_else(|| crate::core::error::AppError::NotFound(
+            .ok_or_else(|| crate::core::error::CLIERPError::NotFound(
                 format!("Purchase order with ID {} not found", po_id)
             ))?;
 
@@ -165,7 +165,7 @@ impl PurchaseOrderService {
     }
 
     pub fn list_purchase_orders(
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         filters: &FilterOptions,
         pagination: &PaginationParams,
     ) -> Result<PaginatedResult<PurchaseOrderSummary>> {
@@ -280,17 +280,17 @@ impl PurchaseOrderService {
     }
 
     pub fn approve_purchase_order(
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         po_id: i32,
         approved_by: i32,
     ) -> Result<PurchaseOrder> {
         let purchase_order = Self::get_purchase_order_by_id(conn, po_id)?
-            .ok_or_else(|| crate::core::error::AppError::NotFound(
+            .ok_or_else(|| crate::core::error::CLIERPError::NotFound(
                 format!("Purchase order with ID {} not found", po_id)
             ))?;
 
         if purchase_order.status != PurchaseOrderStatus::Pending.to_string() {
-            return Err(crate::core::error::AppError::BusinessLogic(
+            return Err(crate::core::error::CLIERPError::BusinessLogic(
                 "Only pending purchase orders can be approved".to_string()
             ));
         }
@@ -308,19 +308,19 @@ impl PurchaseOrderService {
     }
 
     pub fn receive_purchase_items(
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         po_id: i32,
         received_items: Vec<ReceiveItemData>,
         received_by: Option<i32>,
     ) -> Result<PurchaseOrder> {
         let purchase_order = Self::get_purchase_order_by_id(conn, po_id)?
-            .ok_or_else(|| crate::core::error::AppError::NotFound(
+            .ok_or_else(|| crate::core::error::CLIERPError::NotFound(
                 format!("Purchase order with ID {} not found", po_id)
             ))?;
 
         if purchase_order.status != PurchaseOrderStatus::Approved.to_string()
             && purchase_order.status != PurchaseOrderStatus::Sent.to_string() {
-            return Err(crate::core::error::AppError::BusinessLogic(
+            return Err(crate::core::error::CLIERPError::BusinessLogic(
                 "Only approved or sent purchase orders can be received".to_string()
             ));
         }
@@ -406,13 +406,13 @@ impl PurchaseOrderService {
 
             Ok(())
         })
-        .map_err(|e| crate::core::error::AppError::DatabaseError(e.to_string()))?;
+        .map_err(|e| crate::core::error::CLIERPError::DatabaseError(e.to_string()))?;
 
         Self::get_purchase_order_by_id(conn, po_id)?
-            .ok_or_else(|| crate::core::error::AppError::NotFound("Purchase order not found".to_string()))
+            .ok_or_else(|| crate::core::error::CLIERPError::NotFound("Purchase order not found".to_string()))
     }
 
-    fn generate_po_number(conn: &mut DbConnection) -> Result<String> {
+    fn generate_po_number(conn: &mut DatabaseConnection) -> Result<String> {
         let count = purchase_orders::table
             .count()
             .get_result::<i64>(conn)?;

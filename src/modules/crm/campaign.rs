@@ -1,11 +1,11 @@
 use diesel::prelude::*;
 use chrono::{Utc, NaiveDate};
-use crate::core::result::Result;
+use crate::core::result::CLIERPResult;
 use crate::database::{
-    DbConnection, Campaign, NewCampaign, CampaignStatus, CampaignType, CampaignWithStats
+    DatabaseConnection, Campaign, NewCampaign, CampaignStatus, CampaignType, CampaignWithStats
 };
 use crate::database::schema::{campaigns, leads, customers};
-use crate::utils::validation::Validator;
+use crate::utils::validation::validate_required_string;
 use crate::utils::pagination::{Paginate, PaginationParams, PaginatedResult};
 use crate::utils::filters::FilterOptions;
 
@@ -13,7 +13,7 @@ pub struct CampaignService;
 
 impl CampaignService {
     pub fn create_campaign(
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         name: &str,
         campaign_type: CampaignType,
         description: Option<&str>,
@@ -32,7 +32,7 @@ impl CampaignService {
 
         if let Some(end_date) = end_date {
             if end_date <= start_date {
-                return Err(crate::core::error::AppError::Validation(
+                return Err(crate::core::error::CLIERPError::Validation(
                     "End date must be after start date".to_string()
                 ));
             }
@@ -67,7 +67,7 @@ impl CampaignService {
             .map_err(Into::into)
     }
 
-    pub fn get_campaign_by_id(conn: &mut DbConnection, campaign_id: i32) -> Result<Option<Campaign>> {
+    pub fn get_campaign_by_id(conn: &mut DatabaseConnection, campaign_id: i32) -> Result<Option<Campaign>> {
         campaigns::table
             .find(campaign_id)
             .first::<Campaign>(conn)
@@ -75,7 +75,7 @@ impl CampaignService {
             .map_err(Into::into)
     }
 
-    pub fn get_campaign_by_code(conn: &mut DbConnection, campaign_code: &str) -> Result<Option<Campaign>> {
+    pub fn get_campaign_by_code(conn: &mut DatabaseConnection, campaign_code: &str) -> Result<Option<Campaign>> {
         campaigns::table
             .filter(campaigns::campaign_code.eq(campaign_code))
             .first::<Campaign>(conn)
@@ -83,7 +83,7 @@ impl CampaignService {
             .map_err(Into::into)
     }
 
-    pub fn get_campaign_with_stats(conn: &mut DbConnection, campaign_id: i32) -> Result<Option<CampaignWithStats>> {
+    pub fn get_campaign_with_stats(conn: &mut DatabaseConnection, campaign_id: i32) -> Result<Option<CampaignWithStats>> {
         let campaign = Self::get_campaign_by_id(conn, campaign_id)?;
 
         if let Some(campaign) = campaign {
@@ -131,7 +131,7 @@ impl CampaignService {
     }
 
     pub fn list_campaigns(
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         filters: &FilterOptions,
         pagination: &PaginationParams,
     ) -> Result<PaginatedResult<Campaign>> {
@@ -213,7 +213,7 @@ impl CampaignService {
     }
 
     pub fn update_campaign(
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         campaign_id: i32,
         name: Option<&str>,
         description: Option<Option<&str>>,
@@ -226,7 +226,7 @@ impl CampaignService {
     ) -> Result<Campaign> {
         // Check if campaign exists
         let _campaign = Self::get_campaign_by_id(conn, campaign_id)?
-            .ok_or_else(|| crate::core::error::AppError::NotFound(
+            .ok_or_else(|| crate::core::error::CLIERPError::NotFound(
                 format!("Campaign with ID {} not found", campaign_id)
             ))?;
 
@@ -278,7 +278,7 @@ impl CampaignService {
     }
 
     pub fn update_campaign_status(
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         campaign_id: i32,
         new_status: CampaignStatus,
     ) -> Result<Campaign> {
@@ -292,7 +292,7 @@ impl CampaignService {
             .map_err(Into::into)
     }
 
-    pub fn delete_campaign(conn: &mut DbConnection, campaign_id: i32) -> Result<bool> {
+    pub fn delete_campaign(conn: &mut DatabaseConnection, campaign_id: i32) -> Result<bool> {
         // Check if campaign has any leads
         let has_leads = leads::table
             .inner_join(campaigns::table.on(leads::lead_source.eq(campaigns::campaign_code)))
@@ -302,7 +302,7 @@ impl CampaignService {
             .is_some();
 
         if has_leads {
-            return Err(crate::core::error::AppError::BusinessLogic(
+            return Err(crate::core::error::CLIERPError::BusinessLogic(
                 "Cannot delete campaign with existing leads. Set status to completed instead.".to_string()
             ));
         }
@@ -314,7 +314,7 @@ impl CampaignService {
     }
 
     pub fn get_campaigns_by_status(
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         status: CampaignStatus,
     ) -> Result<Vec<Campaign>> {
         campaigns::table
@@ -324,7 +324,7 @@ impl CampaignService {
             .map_err(Into::into)
     }
 
-    pub fn get_active_campaigns(conn: &mut DbConnection) -> Result<Vec<Campaign>> {
+    pub fn get_active_campaigns(conn: &mut DatabaseConnection) -> Result<Vec<Campaign>> {
         let today = Utc::now().naive_utc().date();
 
         campaigns::table
@@ -339,7 +339,7 @@ impl CampaignService {
             .map_err(Into::into)
     }
 
-    pub fn get_campaign_performance(conn: &mut DbConnection) -> Result<Vec<CampaignPerformance>> {
+    pub fn get_campaign_performance(conn: &mut DatabaseConnection) -> Result<Vec<CampaignPerformance>> {
         let campaigns: Vec<Campaign> = campaigns::table
             .filter(campaigns::status.ne(CampaignStatus::Draft.to_string()))
             .order(campaigns::created_at.desc())
@@ -370,7 +370,7 @@ impl CampaignService {
         Ok(performance)
     }
 
-    pub fn get_campaign_statistics(conn: &mut DbConnection) -> Result<CampaignStatistics> {
+    pub fn get_campaign_statistics(conn: &mut DatabaseConnection) -> Result<CampaignStatistics> {
         // Total campaigns count
         let total_campaigns = campaigns::table
             .count()
@@ -414,7 +414,7 @@ impl CampaignService {
         })
     }
 
-    fn generate_campaign_code(conn: &mut DbConnection) -> Result<String> {
+    fn generate_campaign_code(conn: &mut DatabaseConnection) -> Result<String> {
         let count = campaigns::table
             .count()
             .get_result::<i64>(conn)?;

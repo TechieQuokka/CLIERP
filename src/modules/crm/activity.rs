@@ -1,11 +1,11 @@
 use diesel::prelude::*;
 use chrono::{Utc, NaiveDateTime};
-use crate::core::result::Result;
+use crate::core::result::CLIERPResult;
 use crate::database::{
-    DbConnection, Activity, NewActivity, ActivityType, Customer, Lead, Employee
+    DatabaseConnection, Activity, NewActivity, ActivityType, Customer, Lead, Employee
 };
 use crate::database::schema::{activities, customers, leads, employees};
-use crate::utils::validation::Validator;
+use crate::utils::validation::validate_required_string;
 use crate::utils::pagination::{Paginate, PaginationParams, PaginatedResult};
 use crate::utils::filters::FilterOptions;
 
@@ -13,7 +13,7 @@ pub struct ActivityService;
 
 impl ActivityService {
     pub fn create_activity(
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         activity_type: ActivityType,
         title: &str,
         description: Option<&str>,
@@ -32,7 +32,7 @@ impl ActivityService {
 
         // Ensure at least one of customer_id or lead_id is provided
         if customer_id.is_none() && lead_id.is_none() {
-            return Err(crate::core::error::AppError::Validation(
+            return Err(crate::core::error::CLIERPError::Validation(
                 "Either customer_id or lead_id must be provided".to_string()
             ));
         }
@@ -77,7 +77,7 @@ impl ActivityService {
             .map_err(Into::into)
     }
 
-    pub fn get_activity_by_id(conn: &mut DbConnection, activity_id: i32) -> Result<Option<Activity>> {
+    pub fn get_activity_by_id(conn: &mut DatabaseConnection, activity_id: i32) -> Result<Option<Activity>> {
         activities::table
             .find(activity_id)
             .first::<Activity>(conn)
@@ -85,7 +85,7 @@ impl ActivityService {
             .map_err(Into::into)
     }
 
-    pub fn get_activity_with_details(conn: &mut DbConnection, activity_id: i32) -> Result<Option<ActivityWithDetails>> {
+    pub fn get_activity_with_details(conn: &mut DatabaseConnection, activity_id: i32) -> Result<Option<ActivityWithDetails>> {
         let activity = Self::get_activity_by_id(conn, activity_id)?;
 
         if let Some(activity) = activity {
@@ -127,7 +127,7 @@ impl ActivityService {
     }
 
     pub fn list_activities(
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         filters: &FilterOptions,
         pagination: &PaginationParams,
     ) -> Result<PaginatedResult<ActivityWithDetails>> {
@@ -247,7 +247,7 @@ impl ActivityService {
     }
 
     pub fn update_activity(
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         activity_id: i32,
         title: Option<&str>,
         description: Option<Option<&str>>,
@@ -257,7 +257,7 @@ impl ActivityService {
     ) -> Result<Activity> {
         // Check if activity exists
         let _activity = Self::get_activity_by_id(conn, activity_id)?
-            .ok_or_else(|| crate::core::error::AppError::NotFound(
+            .ok_or_else(|| crate::core::error::CLIERPError::NotFound(
                 format!("Activity with ID {} not found", activity_id)
             ))?;
 
@@ -307,7 +307,7 @@ impl ActivityService {
     }
 
     pub fn complete_activity(
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         activity_id: i32,
         outcome: Option<&str>,
     ) -> Result<Activity> {
@@ -324,7 +324,7 @@ impl ActivityService {
     }
 
     pub fn reopen_activity(
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         activity_id: i32,
     ) -> Result<Activity> {
         diesel::update(activities::table.find(activity_id))
@@ -339,7 +339,7 @@ impl ActivityService {
             .map_err(Into::into)
     }
 
-    pub fn delete_activity(conn: &mut DbConnection, activity_id: i32) -> Result<bool> {
+    pub fn delete_activity(conn: &mut DatabaseConnection, activity_id: i32) -> Result<bool> {
         let deleted_rows = diesel::delete(activities::table.find(activity_id))
             .execute(conn)?;
 
@@ -347,7 +347,7 @@ impl ActivityService {
     }
 
     pub fn get_activities_by_customer(
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         customer_id: i32,
     ) -> Result<Vec<ActivityWithDetails>> {
         let results: Vec<(Activity, Option<Customer>, Option<Lead>, String)> = activities::table
@@ -378,7 +378,7 @@ impl ActivityService {
     }
 
     pub fn get_activities_by_lead(
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         lead_id: i32,
     ) -> Result<Vec<ActivityWithDetails>> {
         let results: Vec<(Activity, Option<Customer>, Option<Lead>, String)> = activities::table
@@ -409,7 +409,7 @@ impl ActivityService {
     }
 
     pub fn get_activities_by_employee(
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         employee_id: i32,
     ) -> Result<Vec<ActivityWithDetails>> {
         let results: Vec<(Activity, Option<Customer>, Option<Lead>, String)> = activities::table
@@ -439,7 +439,7 @@ impl ActivityService {
         Ok(activities_with_details)
     }
 
-    pub fn get_overdue_activities(conn: &mut DbConnection) -> Result<Vec<ActivityWithDetails>> {
+    pub fn get_overdue_activities(conn: &mut DatabaseConnection) -> Result<Vec<ActivityWithDetails>> {
         let now = Utc::now().naive_utc();
 
         let results: Vec<(Activity, Option<Customer>, Option<Lead>, String)> = activities::table
@@ -470,7 +470,7 @@ impl ActivityService {
         Ok(activities_with_details)
     }
 
-    pub fn get_activity_statistics(conn: &mut DbConnection) -> Result<ActivityStatistics> {
+    pub fn get_activity_statistics(conn: &mut DatabaseConnection) -> Result<ActivityStatistics> {
         // Total activities count
         let total_activities = activities::table
             .count()

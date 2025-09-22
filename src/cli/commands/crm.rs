@@ -394,7 +394,7 @@ fn handle_customer_show(matches: &ArgMatches) -> CLIERPResult<()> {
     let customer_id = *matches.get_one::<i32>("customer_id").unwrap();
 
     let customer_with_stats = CustomerService::get_customer_with_stats(&mut conn, customer_id)?
-        .ok_or_else(|| crate::core::error::AppError::NotFound(format!("Customer with ID {} not found", customer_id)))?;
+        .ok_or_else(|| crate::core::error::CLIERPError::NotFound(format!("Customer with ID {} not found", customer_id)))?;
 
     println!("Customer Details:");
     println!("ID: {}", customer_with_stats.customer.id);
@@ -577,7 +577,7 @@ fn handle_lead_show(matches: &ArgMatches) -> CLIERPResult<()> {
     let lead_id = *matches.get_one::<i32>("lead_id").unwrap();
 
     let lead_with_customer = LeadService::get_lead_with_customer(&mut conn, lead_id)?
-        .ok_or_else(|| crate::core::error::AppError::NotFound(format!("Lead with ID {} not found", lead_id)))?;
+        .ok_or_else(|| crate::core::error::CLIERPError::NotFound(format!("Lead with ID {} not found", lead_id)))?;
 
     println!("Lead Details:");
     println!("ID: {}", lead_with_customer.lead.id);

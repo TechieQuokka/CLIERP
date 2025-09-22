@@ -324,7 +324,7 @@ fn handle_supplier_show(matches: &ArgMatches) -> CLIERPResult<()> {
     let supplier_id = *matches.get_one::<i32>("supplier_id").unwrap();
 
     let supplier = SupplierService::get_supplier_by_id(&mut conn, supplier_id)?
-        .ok_or_else(|| crate::core::error::AppError::NotFound(format!("Supplier with ID {} not found", supplier_id)))?;
+        .ok_or_else(|| crate::core::error::CLIERPError::NotFound(format!("Supplier with ID {} not found", supplier_id)))?;
 
     let stats = SupplierService::get_supplier_statistics(&mut conn, supplier_id)?;
 
@@ -400,14 +400,14 @@ fn handle_purchase_create(matches: &ArgMatches) -> CLIERPResult<()> {
         .map(|item| {
             let parts: Vec<&str> = item.split(':').collect();
             if parts.len() != 3 {
-                return Err(crate::core::error::AppError::ValidationError(
+                return Err(crate::core::error::CLIERPError::ValidationError(
                     "Items format should be: product_id:quantity:unit_cost".to_string()
                 ));
             }
             Ok(PurchaseOrderItem {
-                product_id: parts[0].parse().map_err(|_| crate::core::error::AppError::ValidationError("Invalid product ID".to_string()))?,
-                quantity: parts[1].parse().map_err(|_| crate::core::error::AppError::ValidationError("Invalid quantity".to_string()))?,
-                unit_cost: parts[2].parse().map_err(|_| crate::core::error::AppError::ValidationError("Invalid unit cost".to_string()))?,
+                product_id: parts[0].parse().map_err(|_| crate::core::error::CLIERPError::ValidationError("Invalid product ID".to_string()))?,
+                quantity: parts[1].parse().map_err(|_| crate::core::error::CLIERPError::ValidationError("Invalid quantity".to_string()))?,
+                unit_cost: parts[2].parse().map_err(|_| crate::core::error::CLIERPError::ValidationError("Invalid unit cost".to_string()))?,
             })
         })
         .collect();
@@ -545,13 +545,13 @@ fn handle_purchase_receive(matches: &ArgMatches) -> CLIERPResult<()> {
         .map(|item| {
             let parts: Vec<&str> = item.split(':').collect();
             if parts.len() != 2 {
-                return Err(crate::core::error::AppError::ValidationError(
+                return Err(crate::core::error::CLIERPError::ValidationError(
                     "Items format should be: item_id:quantity".to_string()
                 ));
             }
             Ok(ReceiveItemData {
-                item_id: parts[0].parse().map_err(|_| crate::core::error::AppError::ValidationError("Invalid item ID".to_string()))?,
-                quantity: parts[1].parse().map_err(|_| crate::core::error::AppError::ValidationError("Invalid quantity".to_string()))?,
+                item_id: parts[0].parse().map_err(|_| crate::core::error::CLIERPError::ValidationError("Invalid item ID".to_string()))?,
+                quantity: parts[1].parse().map_err(|_| crate::core::error::CLIERPError::ValidationError("Invalid quantity".to_string()))?,
             })
         })
         .collect();

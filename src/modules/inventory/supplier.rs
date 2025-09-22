@@ -1,9 +1,9 @@
 use diesel::prelude::*;
 use chrono::{Utc, NaiveDate};
-use crate::core::result::Result;
-use crate::database::{DbConnection, Supplier, NewSupplier, SupplierStatus};
+use crate::core::result::CLIERPResult;
+use crate::database::{DatabaseConnection, Supplier, NewSupplier, SupplierStatus};
 use crate::database::schema::suppliers;
-use crate::utils::validation::Validator;
+use crate::utils::validation::{validate_email, validate_required_string};
 use crate::utils::pagination::{Paginate, PaginationParams, PaginatedResult};
 use crate::utils::filters::FilterOptions;
 
@@ -11,7 +11,7 @@ pub struct SupplierService;
 
 impl SupplierService {
     pub fn create_supplier(
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         supplier_code: &str,
         name: &str,
         contact_person: Option<&str>,
@@ -41,7 +41,7 @@ impl SupplierService {
             .optional()?;
 
         if existing.is_some() {
-            return Err(crate::core::error::AppError::BusinessLogic(
+            return Err(crate::core::error::CLIERPError::BusinessLogic(
                 format!("Supplier with code '{}' already exists", supplier_code)
             ));
         }
@@ -65,7 +65,7 @@ impl SupplierService {
             .map_err(Into::into)
     }
 
-    pub fn get_supplier_by_id(conn: &mut DbConnection, supplier_id: i32) -> Result<Option<Supplier>> {
+    pub fn get_supplier_by_id(conn: &mut DatabaseConnection, supplier_id: i32) -> Result<Option<Supplier>> {
         suppliers::table
             .find(supplier_id)
             .first::<Supplier>(conn)
@@ -73,7 +73,7 @@ impl SupplierService {
             .map_err(Into::into)
     }
 
-    pub fn get_supplier_by_code(conn: &mut DbConnection, supplier_code: &str) -> Result<Option<Supplier>> {
+    pub fn get_supplier_by_code(conn: &mut DatabaseConnection, supplier_code: &str) -> Result<Option<Supplier>> {
         suppliers::table
             .filter(suppliers::supplier_code.eq(supplier_code))
             .first::<Supplier>(conn)
@@ -82,7 +82,7 @@ impl SupplierService {
     }
 
     pub fn list_suppliers(
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         filters: &FilterOptions,
         pagination: &PaginationParams,
     ) -> Result<PaginatedResult<Supplier>> {
@@ -131,7 +131,7 @@ impl SupplierService {
     }
 
     pub fn update_supplier(
-        conn: &mut DbConnection,
+        conn: &mut DatabaseConnection,
         supplier_id: i32,
         name: Option<&str>,
         contact_person: Option<Option<&str>>,
@@ -143,7 +143,7 @@ impl SupplierService {
     ) -> Result<Supplier> {
         // Check if supplier exists
         let supplier = Self::get_supplier_by_id(conn, supplier_id)?
-            .ok_or_else(|| crate::core::error::AppError::NotFound(
+            .ok_or_else(|| crate::core::error::CLIERPError::NotFound(
                 format!("Supplier with ID {} not found", supplier_id)
             ))?;
 
@@ -195,10 +195,10 @@ impl SupplierService {
             .map_err(Into::into)
     }
 
-    pub fn delete_supplier(conn: &mut DbConnection, supplier_id: i32) -> Result<bool> {
+    pub fn delete_supplier(conn: &mut DatabaseConnection, supplier_id: i32) -> Result<bool> {
         // Check if supplier exists
         let supplier = Self::get_supplier_by_id(conn, supplier_id)?
-            .ok_or_else(|| crate::core::error::AppError::NotFound(
+            .ok_or_else(|| crate::core::error::CLIERPError::NotFound(
                 format!("Supplier with ID {} not found", supplier_id)
             ))?;
 
@@ -211,7 +211,7 @@ impl SupplierService {
             .is_some();
 
         if has_orders {
-            return Err(crate::core::error::AppError::BusinessLogic(
+            return Err(crate::core::error::CLIERPError::BusinessLogic(
                 "Cannot delete supplier with existing purchase orders. Set status to inactive instead.".to_string()
             ));
         }
@@ -222,7 +222,7 @@ impl SupplierService {
         Ok(deleted_rows > 0)
     }
 
-    pub fn get_active_suppliers(conn: &mut DbConnection) -> Result<Vec<Supplier>> {
+    pub fn get_active_suppliers(conn: &mut DatabaseConnection) -> Result<Vec<Supplier>> {
         suppliers::table
             .filter(suppliers::status.eq(SupplierStatus::Active.to_string()))
             .order(suppliers::name.asc())
@@ -230,7 +230,7 @@ impl SupplierService {
             .map_err(Into::into)
     }
 
-    pub fn search_suppliers(conn: &mut DbConnection, query: &str) -> Result<Vec<Supplier>> {
+    pub fn search_suppliers(conn: &mut DatabaseConnection, query: &str) -> Result<Vec<Supplier>> {
         suppliers::table
             .filter(
                 suppliers::name.like(format!("%{}%", query))
@@ -244,7 +244,7 @@ impl SupplierService {
             .map_err(Into::into)
     }
 
-    pub fn get_supplier_statistics(conn: &mut DbConnection, supplier_id: i32) -> Result<SupplierStatistics> {
+    pub fn get_supplier_statistics(conn: &mut DatabaseConnection, supplier_id: i32) -> Result<SupplierStatistics> {
         use crate::database::schema::{purchase_orders, purchase_items};
 
         // Get total purchase orders count

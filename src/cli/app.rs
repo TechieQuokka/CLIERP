@@ -710,7 +710,7 @@ impl CLIApp {
                         println!("Statistics:");
                         println!("Total Orders: {}", stats.total_orders);
                         println!("Pending Orders: {}", stats.pending_orders);
-                        println!("Total Amount: ₩{:,}", stats.total_amount);
+                        println!("Total Amount: ₩{}", stats.total_amount);
                     }
                     SupplierCommands::Update {
                         supplier_id,
@@ -791,7 +791,7 @@ impl CLIApp {
                         println!("✅ Purchase order created successfully!");
                         println!("PO Number: {}", po_with_details.purchase_order.po_number);
                         println!("Supplier: {}", po_with_details.supplier.name);
-                        println!("Total Amount: ₩{:,}", po_with_details.purchase_order.total_amount);
+                        println!("Total Amount: ₩{}", po_with_details.purchase_order.total_amount);
                         println!("Items: {} products", po_with_details.items.len());
                     }
                     PurchaseOrderCommands::List {
@@ -821,7 +821,7 @@ impl CLIApp {
                         println!("Purchase Orders:");
                         for (i, po) in result.items.iter().enumerate() {
                             println!(
-                                "  {}. {} - {} - {} - {} items - ₩{:,}",
+                                "  {}. {} - {} - {} - {} items - ₩{}",
                                 (page - 1) * per_page + i as u32 + 1,
                                 po.po_number,
                                 po.supplier_name,
@@ -841,7 +841,7 @@ impl CLIApp {
                         println!("Order Date: {}", po_details.purchase_order.order_date);
                         println!("Expected Date: {}", po_details.purchase_order.expected_date.map(|d| d.to_string()).unwrap_or_else(|| "-".to_string()));
                         println!("Status: {}", po_details.purchase_order.status);
-                        println!("Total Amount: ₩{:,}", po_details.purchase_order.total_amount);
+                        println!("Total Amount: ₩{}", po_details.purchase_order.total_amount);
                         if let Some(notes) = &po_details.purchase_order.notes {
                             println!("Notes: {}", notes);
                         }
@@ -850,7 +850,7 @@ impl CLIApp {
                         println!("Items:");
                         for (i, item) in po_details.items.iter().enumerate() {
                             println!(
-                                "  {}. {} ({}) - Qty: {} - Cost: ₩{:,} each - Total: ₩{:,} - Received: {} - Status: {}",
+                                "  {}. {} ({}) - Qty: {} - Cost: ₩{} each - Total: ₩{} - Received: {} - Status: {}",
                                 i + 1,
                                 item.product_name,
                                 item.product_sku,

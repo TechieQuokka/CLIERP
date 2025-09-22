@@ -77,7 +77,7 @@ impl HRReportsGenerator {
         Self
     }
 
-    fn generate_employee_summary_report(&self, config: ReportConfig) -> Result<ReportResult> {
+    fn generate_employee_summary_report(&self, config: ReportConfig) -> CLIERPResult<ReportResult> {
         // This would need a database connection in a real implementation
         // For now, we'll create a mock report structure
 
@@ -153,7 +153,7 @@ impl HRReportsGenerator {
         })
     }
 
-    fn generate_attendance_report(&self, config: ReportConfig) -> Result<ReportResult> {
+    fn generate_attendance_report(&self, config: ReportConfig) -> CLIERPResult<ReportResult> {
         let sections = vec![
             ReportSection {
                 title: "Attendance Summary".to_string(),
@@ -250,7 +250,7 @@ impl HRReportsGenerator {
         })
     }
 
-    fn generate_payroll_report(&self, config: ReportConfig) -> Result<ReportResult> {
+    fn generate_payroll_report(&self, config: ReportConfig) -> CLIERPResult<ReportResult> {
         let headers = vec![
             "Department".to_string(),
             "Employee Count".to_string(),
@@ -342,7 +342,7 @@ impl HRReportsGenerator {
         })
     }
 
-    fn generate_hr_analytics_report(&self, config: ReportConfig) -> Result<ReportResult> {
+    fn generate_hr_analytics_report(&self, config: ReportConfig) -> CLIERPResult<ReportResult> {
         let sections = vec![
             ReportSection {
                 title: "Workforce Analytics".to_string(),

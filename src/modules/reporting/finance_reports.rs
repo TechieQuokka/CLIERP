@@ -79,7 +79,7 @@ impl FinanceReportsGenerator {
         Self
     }
 
-    fn generate_income_statement(&self, config: ReportConfig) -> Result<ReportResult> {
+    fn generate_income_statement(&self, config: ReportConfig) -> CLIERPResult<ReportResult> {
         let sections = vec![
             ReportSection {
                 title: "Revenue".to_string(),
@@ -214,7 +214,7 @@ impl FinanceReportsGenerator {
         })
     }
 
-    fn generate_balance_sheet(&self, config: ReportConfig) -> Result<ReportResult> {
+    fn generate_balance_sheet(&self, config: ReportConfig) -> CLIERPResult<ReportResult> {
         let sections = vec![
             ReportSection {
                 title: "Assets".to_string(),
@@ -350,7 +350,7 @@ impl FinanceReportsGenerator {
         })
     }
 
-    fn generate_cash_flow_statement(&self, config: ReportConfig) -> Result<ReportResult> {
+    fn generate_cash_flow_statement(&self, config: ReportConfig) -> CLIERPResult<ReportResult> {
         let table_data = TableData {
             headers: vec![
                 "Cash Flow Category".to_string(),
@@ -465,7 +465,7 @@ impl FinanceReportsGenerator {
         })
     }
 
-    fn generate_budget_vs_actual_report(&self, config: ReportConfig) -> Result<ReportResult> {
+    fn generate_budget_vs_actual_report(&self, config: ReportConfig) -> CLIERPResult<ReportResult> {
         let sections = vec![
             ReportSection {
                 title: "Revenue Analysis".to_string(),
@@ -599,7 +599,7 @@ impl FinanceReportsGenerator {
         })
     }
 
-    fn generate_financial_analytics(&self, config: ReportConfig) -> Result<ReportResult> {
+    fn generate_financial_analytics(&self, config: ReportConfig) -> CLIERPResult<ReportResult> {
         let sections = vec![
             ReportSection {
                 title: "Financial Ratios".to_string(),

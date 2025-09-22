@@ -1,6 +1,7 @@
 use chrono::{NaiveDate, NaiveDateTime};
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
+use clap::ValueEnum;
 
 use super::schema::{customers, leads, deals, campaigns, campaign_leads, activities};
 
@@ -17,7 +18,7 @@ pub struct Customer {
     pub customer_type: String,
     pub company_name: Option<String>,
     pub tax_id: Option<String>,
-    pub credit_limit: i32,
+    pub credit_limit: Option<i32>,
     pub status: String,
     pub notes: Option<String>,
     pub created_at: NaiveDateTime,
@@ -35,12 +36,12 @@ pub struct NewCustomer {
     pub customer_type: String,
     pub company_name: Option<String>,
     pub tax_id: Option<String>,
-    pub credit_limit: i32,
+    pub credit_limit: Option<i32>,
     pub status: String,
     pub notes: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ValueEnum)]
 pub enum CustomerType {
     Individual,
     Business,
@@ -55,7 +56,7 @@ impl std::fmt::Display for CustomerType {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ValueEnum)]
 pub enum CustomerStatus {
     Active,
     Inactive,
@@ -81,8 +82,8 @@ pub struct Lead {
     pub lead_source: String,
     pub status: String,
     pub priority: String,
-    pub estimated_value: i32,
-    pub probability: i32,
+    pub estimated_value: Option<i32>,
+    pub probability: Option<i32>,
     pub expected_close_date: Option<NaiveDate>,
     pub assigned_to: Option<i32>,
     pub title: String,
@@ -99,8 +100,8 @@ pub struct NewLead {
     pub lead_source: String,
     pub status: String,
     pub priority: String,
-    pub estimated_value: i32,
-    pub probability: i32,
+    pub estimated_value: Option<i32>,
+    pub probability: Option<i32>,
     pub expected_close_date: Option<NaiveDate>,
     pub assigned_to: Option<i32>,
     pub title: String,
@@ -108,7 +109,7 @@ pub struct NewLead {
     pub notes: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ValueEnum)]
 pub enum LeadStatus {
     New,
     Contacted,
@@ -133,7 +134,7 @@ impl std::fmt::Display for LeadStatus {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ValueEnum)]
 pub enum LeadPriority {
     Low,
     Medium,
@@ -162,10 +163,10 @@ pub struct Deal {
     pub stage: String,
     pub deal_value: i32,
     pub close_date: Option<NaiveDate>,
-    pub probability: i32,
+    pub probability: Option<i32>,
     pub assigned_to: Option<i32>,
     pub products: Option<String>, // JSON string
-    pub discount_percent: i32,
+    pub discount_percent: Option<i32>,
     pub final_amount: Option<i32>,
     pub notes: Option<String>,
     pub created_at: NaiveDateTime,
@@ -180,18 +181,19 @@ pub struct NewDeal {
     pub stage: String,
     pub deal_value: i32,
     pub close_date: Option<NaiveDate>,
-    pub probability: i32,
+    pub probability: Option<i32>,
     pub assigned_to: Option<i32>,
     pub products: Option<String>,
-    pub discount_percent: i32,
+    pub discount_percent: Option<i32>,
     pub final_amount: Option<i32>,
     pub notes: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ValueEnum)]
 pub enum DealStage {
     Prospecting,
     Qualification,
+    NeedsAnalysis,
     Proposal,
     Negotiation,
     Closing,
@@ -204,6 +206,7 @@ impl std::fmt::Display for DealStage {
         match self {
             DealStage::Prospecting => write!(f, "prospecting"),
             DealStage::Qualification => write!(f, "qualification"),
+            DealStage::NeedsAnalysis => write!(f, "needs_analysis"),
             DealStage::Proposal => write!(f, "proposal"),
             DealStage::Negotiation => write!(f, "negotiation"),
             DealStage::Closing => write!(f, "closing"),
@@ -223,8 +226,8 @@ pub struct Campaign {
     pub campaign_type: String,
     pub start_date: Option<NaiveDate>,
     pub end_date: Option<NaiveDate>,
-    pub budget: i32,
-    pub spent: i32,
+    pub budget: Option<i32>,
+    pub spent: Option<i32>,
     pub target_audience: Option<String>,
     pub status: String,
     pub created_by: Option<i32>,
@@ -241,15 +244,15 @@ pub struct NewCampaign {
     pub campaign_type: String,
     pub start_date: Option<NaiveDate>,
     pub end_date: Option<NaiveDate>,
-    pub budget: i32,
-    pub spent: i32,
+    pub budget: Option<i32>,
+    pub spent: Option<i32>,
     pub target_audience: Option<String>,
     pub status: String,
     pub created_by: Option<i32>,
     pub notes: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ValueEnum)]
 pub enum CampaignType {
     Email,
     Phone,
@@ -270,8 +273,9 @@ impl std::fmt::Display for CampaignType {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ValueEnum)]
 pub enum CampaignStatus {
+    Draft,
     Planned,
     Active,
     Paused,
@@ -282,6 +286,7 @@ pub enum CampaignStatus {
 impl std::fmt::Display for CampaignStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            CampaignStatus::Draft => write!(f, "draft"),
             CampaignStatus::Planned => write!(f, "planned"),
             CampaignStatus::Active => write!(f, "active"),
             CampaignStatus::Paused => write!(f, "paused"),
@@ -327,7 +332,7 @@ pub struct NewActivity {
     pub completed: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ValueEnum)]
 pub enum ActivityType {
     Call,
     Email,

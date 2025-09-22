@@ -3,6 +3,7 @@ use tabled::{Table, Tabled};
 
 use crate::core::result::CLIERPResult;
 use crate::modules::inventory::{CategoryService, ProductService, StockAuditService, SupplierService, PurchaseOrderService, CategoryTreeNode, ProductWithCategory, PurchaseOrderItem, ReceiveItemData};
+use crate::cli::commands::purchase::purchase_command;
 use crate::utils::formatting::{format_currency, format_datetime};
 use crate::utils::pagination::PaginationParams;
 
@@ -16,7 +17,7 @@ pub fn inventory_command() -> Command {
             product_commands(),
             stock_commands(),
             audit_commands(),
-            purchase_commands(),
+            purchase_command(),
         ])
 }
 

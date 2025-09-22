@@ -94,7 +94,7 @@ impl CRMReportsGenerator {
         Self
     }
 
-    fn generate_customer_analysis_report(&self, config: ReportConfig) -> Result<ReportResult> {
+    fn generate_customer_analysis_report(&self, config: ReportConfig) -> CLIERPResult<ReportResult> {
         let sections = vec![
             ReportSection {
                 title: "Customer Segmentation".to_string(),
@@ -239,7 +239,7 @@ impl CRMReportsGenerator {
         })
     }
 
-    fn generate_sales_pipeline_report(&self, config: ReportConfig) -> Result<ReportResult> {
+    fn generate_sales_pipeline_report(&self, config: ReportConfig) -> CLIERPResult<ReportResult> {
         let sections = vec![
             ReportSection {
                 title: "Pipeline by Stage".to_string(),
@@ -385,7 +385,7 @@ impl CRMReportsGenerator {
         })
     }
 
-    fn generate_lead_conversion_report(&self, config: ReportConfig) -> Result<ReportResult> {
+    fn generate_lead_conversion_report(&self, config: ReportConfig) -> CLIERPResult<ReportResult> {
         let table_data = TableData {
             headers: vec![
                 "Lead Source".to_string(),
@@ -504,7 +504,7 @@ impl CRMReportsGenerator {
         })
     }
 
-    fn generate_campaign_performance_report(&self, config: ReportConfig) -> Result<ReportResult> {
+    fn generate_campaign_performance_report(&self, config: ReportConfig) -> CLIERPResult<ReportResult> {
         let sections = vec![
             ReportSection {
                 title: "Campaign Results".to_string(),
@@ -642,7 +642,7 @@ impl CRMReportsGenerator {
         })
     }
 
-    fn generate_sales_activity_report(&self, config: ReportConfig) -> Result<ReportResult> {
+    fn generate_sales_activity_report(&self, config: ReportConfig) -> CLIERPResult<ReportResult> {
         let sections = vec![
             ReportSection {
                 title: "Activity Summary by Type".to_string(),
@@ -849,7 +849,7 @@ impl CRMReportsGenerator {
         })
     }
 
-    fn generate_revenue_forecast_report(&self, config: ReportConfig) -> Result<ReportResult> {
+    fn generate_revenue_forecast_report(&self, config: ReportConfig) -> CLIERPResult<ReportResult> {
         let sections = vec![
             ReportSection {
                 title: "Quarterly Revenue Forecast".to_string(),

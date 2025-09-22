@@ -71,8 +71,8 @@ impl LeadService {
             lead_source: lead_source.to_string(),
             status: LeadStatus::New.to_string(),
             priority: priority.to_string(),
-            estimated_value,
-            probability: Self::calculate_initial_probability(&LeadStatus::New),
+            estimated_value: Some(estimated_value),
+            probability: Some(Self::calculate_initial_probability(&LeadStatus::New)),
             expected_close_date,
             assigned_to,
             title: title.to_string(),
@@ -159,7 +159,7 @@ impl LeadService {
     ) -> Result<PaginatedResult<LeadWithCustomer>> {
         let mut query = leads::table
             .left_join(customers::table)
-            .left_join(employees::table.on(employees::id.eq(leads::assigned_to.nullable())))
+            .left_join(employees::table.on(employees::id.nullable().eq(leads::assigned_to)))
             .select((
                 Lead::as_select(),
                 customers::all_columns.nullable(),
@@ -245,7 +245,7 @@ impl LeadService {
 
         let results: Vec<(Lead, Option<Customer>, Option<String>)> = query
             .offset(pagination.offset())
-            .limit(pagination.limit)
+            .limit(pagination.limit())
             .load(conn)?;
 
         let total_items = leads::table.count().get_result::<i64>(conn)?;
@@ -259,13 +259,7 @@ impl LeadService {
             })
             .collect();
 
-        Ok(PaginatedResult {
-            items: leads_with_customer,
-            total_items,
-            page: pagination.page,
-            per_page: pagination.per_page,
-            total_pages: (total_items as f64 / pagination.per_page as f64).ceil() as i64,
-        })
+        Ok(PaginatedResult::new(leads_with_customer, pagination, total_items))
     }
 
     pub fn update_lead_status(
@@ -352,7 +346,7 @@ impl LeadService {
         }
 
         if let Some(estimated_value) = estimated_value {
-            if *estimated_value < 0 {
+            if estimated_value < 0 {
                 return Err(crate::core::error::CLIERPError::Validation(
                     "Estimated value cannot be negative".to_string()
                 ));
@@ -360,67 +354,65 @@ impl LeadService {
         }
 
         // Build update query - update each field individually
-        use crate::database::schema::leads::dsl::*;
-
         let current_time = Utc::now().naive_utc();
 
         if let Some(title_val) = title {
-            diesel::update(leads.find(lead_id))
-                .set(title.eq(title_val))
+            diesel::update(leads::table.find(lead_id))
+                .set(leads::title.eq(title_val))
                 .execute(conn)?;
         }
 
         if let Some(customer_val) = customer_id {
-            diesel::update(leads.find(lead_id))
-                .set(customer_id.eq(*customer_val))
+            diesel::update(leads::table.find(lead_id))
+                .set(leads::customer_id.eq(customer_val))
                 .execute(conn)?;
         }
 
         if let Some(source_val) = lead_source {
-            diesel::update(leads.find(lead_id))
-                .set(lead_source.eq(source_val))
+            diesel::update(leads::table.find(lead_id))
+                .set(leads::lead_source.eq(source_val))
                 .execute(conn)?;
         }
 
         if let Some(value_val) = estimated_value {
-            diesel::update(leads.find(lead_id))
-                .set(estimated_value.eq(*value_val))
+            diesel::update(leads::table.find(lead_id))
+                .set(leads::estimated_value.eq(value_val))
                 .execute(conn)?;
         }
 
         if let Some(date_val) = expected_close_date {
-            diesel::update(leads.find(lead_id))
-                .set(expected_close_date.eq(*date_val))
+            diesel::update(leads::table.find(lead_id))
+                .set(leads::expected_close_date.eq(date_val))
                 .execute(conn)?;
         }
 
         if let Some(priority_val) = priority {
-            diesel::update(leads.find(lead_id))
-                .set(priority.eq(priority_val.to_string()))
+            diesel::update(leads::table.find(lead_id))
+                .set(leads::priority.eq(priority_val.to_string()))
                 .execute(conn)?;
         }
 
         if let Some(assigned_val) = assigned_to {
-            diesel::update(leads.find(lead_id))
-                .set(assigned_to.eq(*assigned_val))
+            diesel::update(leads::table.find(lead_id))
+                .set(leads::assigned_to.eq(assigned_val))
                 .execute(conn)?;
         }
 
         if let Some(desc_val) = description {
-            diesel::update(leads.find(lead_id))
-                .set(description.eq(desc_val.map(|s| s.to_string())))
+            diesel::update(leads::table.find(lead_id))
+                .set(leads::description.eq(desc_val.map(|s| s.to_string())))
                 .execute(conn)?;
         }
 
         if let Some(notes_val) = notes {
-            diesel::update(leads.find(lead_id))
-                .set(notes.eq(notes_val.map(|s| s.to_string())))
+            diesel::update(leads::table.find(lead_id))
+                .set(leads::notes.eq(notes_val.map(|s| s.to_string())))
                 .execute(conn)?;
         }
 
         // Always update the updated_at timestamp
-        diesel::update(leads.find(lead_id))
-            .set(updated_at.eq(current_time))
+        diesel::update(leads::table.find(lead_id))
+            .set(leads::updated_at.eq(current_time))
             .execute(conn)?;
 
         // Get the updated lead
@@ -481,7 +473,7 @@ impl LeadService {
     ) -> Result<Vec<LeadWithCustomer>> {
         let results: Vec<(Lead, Option<Customer>, Option<String>)> = leads::table
             .left_join(customers::table)
-            .left_join(employees::table.on(employees::id.eq(leads::assigned_to.nullable())))
+            .left_join(employees::table.on(employees::id.nullable().eq(leads::assigned_to)))
             .filter(leads::status.eq(status.to_string()))
             .select((
                 Lead::as_select(),

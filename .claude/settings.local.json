@@ -7,7 +7,14 @@
       "Bash(git commit:*)",
       "Bash(gh repo create:*)",
       "Bash(git remote add:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(sqlite3:*)",
+      "Bash(diesel migration:*)",
+      "Bash(cargo install:*)",
+      "Bash(cargo run:*)",
+      "Bash(cargo check:*)",
+      "Bash(cargo:*)",
+      "mcp__sequential-thinking__sequentialthinking"
     ],
     "deny": [],
     "ask": []

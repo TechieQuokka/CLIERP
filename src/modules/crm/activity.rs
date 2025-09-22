@@ -9,7 +9,7 @@ use crate::database::{
 };
 use crate::database::schema::{activities, customers, leads, employees};
 use crate::utils::validation::validate_required_string;
-use crate::utils::pagination::{Paginate, PaginationParams, PaginatedResult};
+use crate::utils::pagination::{Paginate, PaginationParams, PaginatedResult, PaginateResult};
 use crate::utils::filters::FilterOptions;
 
 pub struct ActivityService;
@@ -18,31 +18,25 @@ impl ActivityService {
     pub fn create_activity(
         conn: &mut DatabaseConnection,
         activity_type: ActivityType,
-        title: &str,
+        subject: &str,
         description: Option<&str>,
         customer_id: Option<i32>,
         lead_id: Option<i32>,
-        assigned_to: i32,
-        due_date: Option<NaiveDateTime>,
-        priority: Option<&str>,
+        deal_id: Option<i32>,
+        assigned_to: Option<i32>,
+        activity_date: NaiveDateTime,
+        duration_minutes: Option<i32>,
     ) -> Result<Activity> {
         // Validate input
-        validate_required_string(title, "title")?;
-        if title.len() < 2 {
+        validate_required_string(subject, "subject")?;
+        if subject.len() < 2 {
             return Err(crate::core::error::CLIERPError::Validation(
-                "Title must be at least 2 characters long".to_string()
+                "Subject must be at least 2 characters long".to_string()
             ));
         }
-        if title.len() > 200 {
+        if subject.len() > 200 {
             return Err(crate::core::error::CLIERPError::Validation(
-                "Title cannot exceed 200 characters".to_string()
-            ));
-        }
-
-        // Ensure at least one of customer_id or lead_id is provided
-        if customer_id.is_none() && lead_id.is_none() {
-            return Err(crate::core::error::CLIERPError::Validation(
-                "Either customer_id or lead_id must be provided".to_string()
+                "Subject cannot exceed 200 characters".to_string()
             ));
         }
 
@@ -60,23 +54,26 @@ impl ActivityService {
                 .first::<Lead>(conn)?;
         }
 
-        // Verify assigned employee exists
-        employees::table
-            .find(assigned_to)
-            .first::<Employee>(conn)?;
+        // Verify assigned employee exists if provided
+        if let Some(assigned_to) = assigned_to {
+            employees::table
+                .find(assigned_to)
+                .first::<Employee>(conn)?;
+        }
 
         // Create new activity
         let new_activity = NewActivity {
-            activity_type: activity_type.to_string(),
-            title: title.to_string(),
-            description: description.map(|s| s.to_string()),
             customer_id,
             lead_id,
-            assigned_to,
-            due_date,
-            completed: false,
-            priority: priority.unwrap_or("medium").to_string(),
+            deal_id,
+            activity_type: activity_type.to_string(),
+            subject: subject.to_string(),
+            description: description.map(|s| s.to_string()),
+            activity_date,
+            duration_minutes,
             outcome: None,
+            assigned_to,
+            completed: false,
         };
 
         diesel::insert_into(activities::table)
@@ -85,7 +82,7 @@ impl ActivityService {
 
         // Get the inserted activity by searching for the most recent activity with matching criteria
         activities::table
-            .filter(activities::dsl::subject.eq(&new_activity.title))
+            .filter(activities::dsl::subject.eq(&new_activity.subject))
             .filter(activities::dsl::activity_type.eq(&new_activity.activity_type))
             .filter(activities::dsl::assigned_to.eq(new_activity.assigned_to))
             .filter(activities::dsl::customer_id.eq(new_activity.customer_id))
@@ -128,10 +125,14 @@ impl ActivityService {
             };
 
             // Get assigned employee name
-            let assigned_employee = employees::table
-                .find(activity.assigned_to)
-                .select(employees::name)
-                .first::<String>(conn)?;
+            let assigned_employee = if let Some(assigned_id) = activity.assigned_to {
+                employees::table
+                    .find(assigned_id)
+                    .select(employees::name)
+                    .first::<String>(conn)?
+            } else {
+                "Unassigned".to_string()
+            };
 
             Ok(Some(ActivityWithDetails {
                 activity,
@@ -150,14 +151,14 @@ impl ActivityService {
         pagination: &PaginationParams,
     ) -> Result<PaginatedResult<ActivityWithDetails>> {
         let mut query = activities::table
-            .left_join(customers::table)
-            .left_join(leads::table)
-            .inner_join(employees::table.on(employees::dsl::id.eq(activities::dsl::assigned_to)))
+            .left_join(customers::table.on(customers::dsl::id.eq(activities::dsl::customer_id.nullable())))
+            .left_join(leads::table.on(leads::dsl::id.eq(activities::dsl::lead_id.nullable())))
+            .left_join(employees::table.on(employees::dsl::id.eq(activities::dsl::assigned_to.nullable())))
             .select((
                 Activity::as_select(),
                 customers::all_columns.nullable(),
                 leads::all_columns.nullable(),
-                employees::name,
+                employees::name.nullable(),
             ))
             .into_boxed();
 
@@ -229,9 +230,9 @@ impl ActivityService {
             _ => query.order(activities::dsl::created_at.desc()),
         };
 
-        let results: Vec<(Activity, Option<Customer>, Option<Lead>, String)> = query
+        let results: Vec<(Activity, Option<Customer>, Option<Lead>, Option<String>)> = query
             .offset(pagination.offset())
-            .limit(pagination.limit)
+            .limit(pagination.limit())
             .load(conn)?;
 
         let total_items = activities::table.count().get_result::<i64>(conn)?;
@@ -242,27 +243,22 @@ impl ActivityService {
                 activity,
                 customer,
                 lead,
-                assigned_employee,
+                assigned_employee: assigned_employee.unwrap_or_else(|| "Unassigned".to_string()),
             })
             .collect();
 
-        Ok(PaginatedResult {
-            items: activities_with_details,
-            total_items,
-            page: pagination.page,
-            per_page: pagination.per_page,
-            total_pages: (total_items as f64 / pagination.per_page as f64).ceil() as i64,
-        })
+        Ok(PaginatedResult::new(activities_with_details, pagination, total_items))
     }
 
     pub fn update_activity(
         conn: &mut DatabaseConnection,
         activity_id: i32,
-        title: Option<&str>,
+        subject: Option<&str>,
         description: Option<Option<&str>>,
-        due_date: Option<Option<NaiveDateTime>>,
-        priority: Option<&str>,
-        assigned_to: Option<i32>,
+        activity_date: Option<NaiveDateTime>,
+        duration_minutes: Option<Option<i32>>,
+        assigned_to: Option<Option<i32>>,
+        completed: Option<bool>,
     ) -> Result<Activity> {
         // Check if activity exists
         let _activity = Self::get_activity_by_id(conn, activity_id)?
@@ -271,51 +267,72 @@ impl ActivityService {
             ))?;
 
         // Validate input
-        if let Some(title) = title {
-            validate_required_string(title, "title")?;
-            if title.len() < 2 {
+        if let Some(subject_val) = subject {
+            validate_required_string(subject_val, "subject")?;
+            if subject_val.len() < 2 {
                 return Err(crate::core::error::CLIERPError::Validation(
-                    "Title must be at least 2 characters long".to_string()
+                    "Subject must be at least 2 characters long".to_string()
                 ));
             }
-            if title.len() > 200 {
+            if subject_val.len() > 200 {
                 return Err(crate::core::error::CLIERPError::Validation(
-                    "Title cannot exceed 200 characters".to_string()
+                    "Subject cannot exceed 200 characters".to_string()
                 ));
             }
         }
 
         // Verify assigned employee exists if provided
-        if let Some(assigned_to) = assigned_to {
-            employees::table
-                .find(assigned_to)
-                .first::<Employee>(conn)?;
+        if let Some(assigned_to_val) = assigned_to {
+            if let Some(employee_id) = assigned_to_val {
+                employees::table
+                    .find(employee_id)
+                    .first::<Employee>(conn)?;
+            }
         }
 
-        // Build update query
-        use crate::database::schema::activities::dsl::*;
-        let mut update_query = diesel::update(activities.find(activity_id));
+        // Build update queries - apply updates individually for simplicity
+        use crate::database::schema::activities::dsl;
 
-        if let Some(title_val) = title {
-            update_query = update_query.set(title.eq(title_val));
+        if let Some(subject_val) = subject {
+            diesel::update(activities::table.find(activity_id))
+                .set(dsl::subject.eq(subject_val))
+                .execute(conn)?;
         }
+
         if let Some(desc_val) = description {
-            update_query = update_query.set(description.eq(desc_val.map(|s| s.to_string())));
+            diesel::update(activities::table.find(activity_id))
+                .set(dsl::description.eq(desc_val.map(|s| s.to_string())))
+                .execute(conn)?;
         }
-        if let Some(due_val) = due_date {
-            update_query = update_query.set(due_date.eq(*due_val));
+
+        if let Some(date_val) = activity_date {
+            diesel::update(activities::table.find(activity_id))
+                .set(dsl::activity_date.eq(date_val))
+                .execute(conn)?;
         }
-        if let Some(priority_val) = priority {
-            update_query = update_query.set(priority.eq(priority_val));
+
+        if let Some(duration_val) = duration_minutes {
+            diesel::update(activities::table.find(activity_id))
+                .set(dsl::duration_minutes.eq(duration_val))
+                .execute(conn)?;
         }
+
         if let Some(assigned_val) = assigned_to {
-            update_query = update_query.set(assigned_to.eq(*assigned_val));
+            diesel::update(activities::table.find(activity_id))
+                .set(dsl::assigned_to.eq(assigned_val))
+                .execute(conn)?;
+        }
+
+        if let Some(completed_val) = completed {
+            diesel::update(activities::table.find(activity_id))
+                .set(dsl::completed.eq(completed_val))
+                .execute(conn)?;
         }
 
         // Always update the updated_at timestamp
-        update_query = update_query.set(updated_at.eq(Utc::now().naive_utc()));
-
-        update_query.execute(conn)?;
+        diesel::update(activities::table.find(activity_id))
+            .set(dsl::updated_at.eq(Utc::now().naive_utc()))
+            .execute(conn)?;
 
         // Get the updated activity
         activities::table

@@ -449,7 +449,7 @@ pub enum ActivityAction {
 pub fn execute_crm_extended_command(
     conn: &mut DatabaseConnection,
     cmd: CrmExtendedCommands,
-) -> Result<()> {
+) -> CLIERPResult<()> {
     match cmd.action {
         CrmExtendedAction::Customer { action } => execute_customer_command(conn, action),
         CrmExtendedAction::Lead { action } => execute_lead_command(conn, action),
@@ -462,7 +462,7 @@ pub fn execute_crm_extended_command(
     }
 }
 
-fn execute_customer_command(conn: &mut DatabaseConnection, action: CustomerAction) -> Result<()> {
+fn execute_customer_command(conn: &mut DatabaseConnection, action: CustomerAction) -> CLIERPResult<()> {
     match action {
         CustomerAction::Create {
             name,
@@ -499,7 +499,7 @@ fn execute_customer_command(conn: &mut DatabaseConnection, action: CustomerActio
             sort_by,
             sort_desc,
         } => {
-            let pagination = PaginationParams::new(page, per_page);
+            let pagination = PaginationParams::new(page as usize, per_page);
             let filters = FilterOptions {
                 search,
                 status,
@@ -510,11 +510,11 @@ fn execute_customer_command(conn: &mut DatabaseConnection, action: CustomerActio
             };
             let result = CustomerService::list_customers(conn, &filters, &pagination)?;
 
-            println!("Customers (Page {} of {}):", result.page, result.total_pages);
-            println!("Total: {} customers", result.total_items);
+            println!("Customers (Page {} of {}):", result.pagination.current_page, result.pagination.total_pages);
+            println!("Total: {} customers", result.pagination.total_count);
             println!();
 
-            for customer in result.items {
+            for customer in result.data {
                 println!("ID: {} | Code: {} | Name: {} | Type: {} | Status: {}",
                     customer.id,
                     customer.customer_code,
@@ -555,7 +555,7 @@ fn execute_customer_command(conn: &mut DatabaseConnection, action: CustomerActio
                 if let Some(company) = &customer_stats.customer.company_name {
                     println!("Company: {}", company);
                 }
-                println!("Credit Limit: {}", customer_stats.customer.credit_limit);
+                println!("Credit Limit: {}", customer_stats.customer.credit_limit.map_or("None".to_string(), |limit| limit.to_string()));
                 println!();
                 println!("Statistics:");
                 println!("Total Leads: {}", customer_stats.total_leads);
@@ -626,7 +626,7 @@ fn execute_customer_command(conn: &mut DatabaseConnection, action: CustomerActio
     Ok(())
 }
 
-fn execute_deal_command(conn: &mut DatabaseConnection, action: DealAction) -> Result<()> {
+fn execute_deal_command(conn: &mut DatabaseConnection, action: DealAction) -> CLIERPResult<()> {
     match action {
         DealAction::Create {
             lead_id,
@@ -648,7 +648,7 @@ fn execute_deal_command(conn: &mut DatabaseConnection, action: DealAction) -> Re
                 notes.as_deref(),
             )?;
             println!("Deal created successfully:");
-            println!("ID: {}, Title: {}, Value: {}", deal.id, deal.title, deal.deal_value);
+            println!("ID: {}, Title: {}, Value: {}", deal.id, deal.deal_name, deal.deal_value);
         }
         DealAction::List {
             page,
@@ -661,7 +661,7 @@ fn execute_deal_command(conn: &mut DatabaseConnection, action: DealAction) -> Re
             sort_by,
             sort_desc,
         } => {
-            let pagination = PaginationParams::new(page, per_page);
+            let pagination = PaginationParams::new(page as usize, per_page);
             let filters = FilterOptions {
                 search,
                 status: stage,
@@ -674,18 +674,18 @@ fn execute_deal_command(conn: &mut DatabaseConnection, action: DealAction) -> Re
             };
             let result = DealService::list_deals(conn, &filters, &pagination)?;
 
-            println!("Deals (Page {} of {}):", result.page, result.total_pages);
-            println!("Total: {} deals", result.total_items);
+            println!("Deals (Page {} of {}):", result.pagination.current_page, result.pagination.total_pages);
+            println!("Total: {} deals", result.pagination.total_count);
             println!();
 
-            for deal_details in result.items {
+            for deal_details in result.data {
                 let customer_name = deal_details.customer
                     .as_ref()
                     .map(|c| c.name.as_str())
                     .unwrap_or("N/A");
                 println!("ID: {} | Title: {} | Value: {} | Stage: {} | Customer: {}",
                     deal_details.deal.id,
-                    deal_details.deal.title,
+                    deal_details.deal.deal_name,
                     deal_details.deal.deal_value,
                     deal_details.deal.stage,
                     customer_name
@@ -696,10 +696,10 @@ fn execute_deal_command(conn: &mut DatabaseConnection, action: DealAction) -> Re
             if let Some(deal_details) = DealService::get_deal_with_details(conn, id)? {
                 println!("Deal Details:");
                 println!("ID: {}", deal_details.deal.id);
-                println!("Title: {}", deal_details.deal.title);
+                println!("Title: {}", deal_details.deal.deal_name);
                 println!("Value: {}", deal_details.deal.deal_value);
                 println!("Stage: {}", deal_details.deal.stage);
-                println!("Probability: {}%", deal_details.deal.probability);
+                println!("Probability: {}%", deal_details.deal.probability.map_or("N/A".to_string(), |p| p.to_string()));
 
                 if let Some(customer) = &deal_details.customer {
                     println!("Customer: {} ({})", customer.name, customer.customer_code);
@@ -711,11 +711,11 @@ fn execute_deal_command(conn: &mut DatabaseConnection, action: DealAction) -> Re
                     println!("Assigned to: {}", assigned);
                 }
 
-                if let Some(close_date) = deal_details.deal.expected_close_date {
+                if let Some(close_date) = deal_details.deal.close_date {
                     println!("Expected Close Date: {}", close_date);
                 }
 
-                if let Some(description) = &deal_details.deal.description {
+                if let Some(description) = &deal_details.deal.notes {
                     println!("Description: {}", description);
                 }
             } else {
@@ -725,7 +725,7 @@ fn execute_deal_command(conn: &mut DatabaseConnection, action: DealAction) -> Re
         DealAction::UpdateStage { id, stage, notes } => {
             let deal = DealService::update_deal_stage(conn, id, stage, notes.as_deref())?;
             println!("Deal stage updated successfully:");
-            println!("ID: {}, Stage: {}, Probability: {}%", deal.id, deal.stage, deal.probability);
+            println!("ID: {}, Stage: {}, Probability: {}%", deal.id, deal.stage, deal.probability.map_or("N/A".to_string(), |p| p.to_string()));
         }
         DealAction::Update {
             id,
@@ -747,7 +747,7 @@ fn execute_deal_command(conn: &mut DatabaseConnection, action: DealAction) -> Re
                 notes.as_deref().map(Some),
             )?;
             println!("Deal updated successfully:");
-            println!("ID: {}, Title: {}", deal.id, deal.title);
+            println!("ID: {}, Title: {}", deal.id, deal.deal_name);
         }
         DealAction::Delete { id } => {
             let deleted = DealService::delete_deal(conn, id)?;
@@ -767,7 +767,7 @@ fn execute_deal_command(conn: &mut DatabaseConnection, action: DealAction) -> Re
                     .unwrap_or("N/A");
                 println!("ID: {} | Title: {} | Value: {} | Customer: {}",
                     deal_details.deal.id,
-                    deal_details.deal.title,
+                    deal_details.deal.deal_name,
                     deal_details.deal.deal_value,
                     customer_name
                 );
@@ -789,7 +789,7 @@ fn execute_deal_command(conn: &mut DatabaseConnection, action: DealAction) -> Re
     Ok(())
 }
 
-fn execute_lead_command(conn: &mut DatabaseConnection, action: LeadAction) -> Result<()> {
+fn execute_lead_command(conn: &mut DatabaseConnection, action: LeadAction) -> CLIERPResult<()> {
     match action {
         LeadAction::Create {
             title,
@@ -815,7 +815,7 @@ fn execute_lead_command(conn: &mut DatabaseConnection, action: LeadAction) -> Re
                 notes.as_deref(),
             )?;
             println!("Lead created successfully:");
-            println!("ID: {}, Title: {}, Value: {}", lead.id, lead.title, lead.estimated_value);
+            println!("ID: {}, Title: {}, Value: {}", lead.id, lead.title, lead.estimated_value.map_or("N/A".to_string(), |v| v.to_string()));
         }
         _ => {
             // TODO: Implement other lead actions
@@ -825,7 +825,7 @@ fn execute_lead_command(conn: &mut DatabaseConnection, action: LeadAction) -> Re
     Ok(())
 }
 
-fn execute_campaign_command(conn: &mut DatabaseConnection, action: CampaignAction) -> Result<()> {
+fn execute_campaign_command(conn: &mut DatabaseConnection, action: CampaignAction) -> CLIERPResult<()> {
     match action {
         CampaignAction::Create {
             name,
@@ -849,7 +849,7 @@ fn execute_campaign_command(conn: &mut DatabaseConnection, action: CampaignActio
                 goals.as_deref(),
             )?;
             println!("Campaign created successfully:");
-            println!("ID: {}, Code: {}, Name: {}", campaign.id, campaign.campaign_code, campaign.name);
+            println!("ID: {}, Type: {}, Name: {}", campaign.id, campaign.campaign_type, campaign.name);
         }
         CampaignAction::Stats => {
             let stats = CampaignService::get_campaign_statistics(conn)?;
@@ -882,7 +882,7 @@ fn execute_campaign_command(conn: &mut DatabaseConnection, action: CampaignActio
     Ok(())
 }
 
-fn execute_activity_command(conn: &mut DatabaseConnection, action: ActivityAction) -> Result<()> {
+fn execute_activity_command(conn: &mut DatabaseConnection, action: ActivityAction) -> CLIERPResult<()> {
     match action {
         ActivityAction::Create {
             activity_type,
@@ -906,7 +906,7 @@ fn execute_activity_command(conn: &mut DatabaseConnection, action: ActivityActio
                 priority.as_deref(),
             )?;
             println!("Activity created successfully:");
-            println!("ID: {}, Title: {}, Type: {}", activity.id, activity.title, activity.activity_type);
+            println!("ID: {}, Title: {}, Type: {}", activity.id, activity.subject, activity.activity_type);
         }
         ActivityAction::Stats => {
             let stats = ActivityService::get_activity_statistics(conn)?;
@@ -936,11 +936,9 @@ fn execute_activity_command(conn: &mut DatabaseConnection, action: ActivityActio
 
                 println!("ID: {} | Title: {} | Type: {} | Due: {} | {}",
                     activity_details.activity.id,
-                    activity_details.activity.title,
+                    activity_details.activity.subject,
                     activity_details.activity.activity_type,
-                    activity_details.activity.due_date
-                        .map(|d| d.format("%Y-%m-%d %H:%M").to_string())
-                        .unwrap_or("No due date".to_string()),
+                    activity_details.activity.activity_date.format("%Y-%m-%d %H:%M").to_string(),
                     entity_name
                 );
             }
@@ -952,7 +950,7 @@ fn execute_activity_command(conn: &mut DatabaseConnection, action: ActivityActio
     Ok(())
 }
 
-fn execute_dashboard_command(conn: &mut DatabaseConnection) -> Result<()> {
+fn execute_dashboard_command(conn: &mut DatabaseConnection) -> CLIERPResult<()> {
     println!("=== CRM Dashboard ===");
     println!();
 
@@ -1012,7 +1010,7 @@ fn execute_dashboard_command(conn: &mut DatabaseConnection) -> Result<()> {
     Ok(())
 }
 
-fn execute_pipeline_command(conn: &mut DatabaseConnection) -> Result<()> {
+fn execute_pipeline_command(conn: &mut DatabaseConnection) -> CLIERPResult<()> {
     println!("=== Sales Pipeline ===");
     println!();
 
@@ -1031,7 +1029,7 @@ fn execute_pipeline_command(conn: &mut DatabaseConnection) -> Result<()> {
     Ok(())
 }
 
-fn execute_performance_command(conn: &mut DatabaseConnection) -> Result<()> {
+fn execute_performance_command(conn: &mut DatabaseConnection) -> CLIERPResult<()> {
     println!("=== Performance Overview ===");
     println!();
 

@@ -40,6 +40,14 @@ pub fn format_currency(amount: i32) -> String {
     format!("₩{}", format_number_with_commas(amount))
 }
 
+/// Format optional currency amount
+pub fn format_optional_currency(amount: Option<i32>) -> String {
+    match amount {
+        Some(value) => format_currency(value),
+        None => "N/A".to_string(),
+    }
+}
+
 /// Format number with thousands separators
 pub fn format_number_with_commas(n: i32) -> String {
     let s = n.to_string();

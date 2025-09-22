@@ -104,6 +104,18 @@ pub enum MetricValue {
     Text(String),
 }
 
+impl std::fmt::Display for MetricValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MetricValue::Number(n) => write!(f, "{:.2}", n),
+            MetricValue::Currency(c) => write!(f, "${:.2}", *c as f64 / 100.0),
+            MetricValue::Percentage(p) => write!(f, "{:.1}%", p),
+            MetricValue::Count(c) => write!(f, "{}", c),
+            MetricValue::Text(t) => write!(f, "{}", t),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReportMetadata {
     pub total_records: i64,
@@ -168,7 +180,7 @@ impl ReportEngine {
         self.generators.insert(id, Box::new(generator));
     }
 
-    pub fn generate_report(&self, report_id: &str, config: ReportConfig) -> Result<ReportResult> {
+    pub fn generate_report(&self, report_id: &str, config: ReportConfig) -> CLIERPResult<ReportResult> {
         let generator = self.generators.get(report_id)
             .ok_or_else(|| crate::core::error::CLIERPError::NotFound(
                 format!("Report generator '{}' not found", report_id)

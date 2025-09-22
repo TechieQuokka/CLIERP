@@ -290,15 +290,15 @@ fn handle_supplier_list(matches: &ArgMatches) -> CLIERPResult<()> {
         ..Default::default()
     };
 
-    let pagination = PaginationParams::new(page, per_page);
+    let pagination = PaginationParams::new(page as usize, per_page as i64);
     let result = SupplierService::list_suppliers(&mut conn, &filters, &pagination)?;
 
-    if result.items.is_empty() {
+    if result.data.is_empty() {
         println!("No suppliers found.");
         return Ok(());
     }
 
-    let rows: Vec<SupplierTableRow> = result.items
+    let rows: Vec<SupplierTableRow> = result.data
         .into_iter()
         .map(|supplier| SupplierTableRow {
             id: supplier.id,
@@ -313,7 +313,7 @@ fn handle_supplier_list(matches: &ArgMatches) -> CLIERPResult<()> {
 
     let table = Table::new(rows);
     println!("{}", table);
-    println!("Page {} of {} ({} total)", result.page, result.total_pages, result.total_items);
+    println!("Page {} of {} ({} total)", result.pagination.current_page, result.pagination.total_pages, result.pagination.total_count);
 
     Ok(())
 }
@@ -451,15 +451,15 @@ fn handle_purchase_list(matches: &ArgMatches) -> CLIERPResult<()> {
         ..Default::default()
     };
 
-    let pagination = PaginationParams::new(page, per_page);
+    let pagination = PaginationParams::new(page as usize, per_page as i64);
     let result = PurchaseOrderService::list_purchase_orders(&mut conn, &filters, &pagination)?;
 
-    if result.items.is_empty() {
+    if result.data.is_empty() {
         println!("No purchase orders found.");
         return Ok(());
     }
 
-    let rows: Vec<PurchaseOrderTableRow> = result.items
+    let rows: Vec<PurchaseOrderTableRow> = result.data
         .into_iter()
         .map(|po| PurchaseOrderTableRow {
             id: po.id,
@@ -474,7 +474,7 @@ fn handle_purchase_list(matches: &ArgMatches) -> CLIERPResult<()> {
 
     let table = Table::new(rows);
     println!("{}", table);
-    println!("Page {} of {} ({} total)", result.page, result.total_pages, result.total_items);
+    println!("Page {} of {} ({} total)", result.pagination.current_page, result.pagination.total_pages, result.pagination.total_count);
 
     Ok(())
 }

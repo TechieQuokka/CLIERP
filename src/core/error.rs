@@ -11,6 +11,21 @@ pub enum CLIERPError {
     #[error("Migration error: {0}")]
     Migration(String),
 
+    #[error("Concurrency error: {0}")]
+    ConcurrencyError(String),
+
+    #[error("Business rule violation: {0}")]
+    BusinessRuleViolation(String),
+
+    #[error("Insufficient privileges: {0}")]
+    InsufficientPrivileges(String),
+
+    #[error("Data integrity error: {0}")]
+    DataIntegrity(String),
+
+    #[error("Transaction error: {0}")]
+    Transaction(String),
+
     #[error("Authentication error: {0}")]
     Authentication(String),
 
@@ -23,14 +38,8 @@ pub enum CLIERPError {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 
-    #[error("IO error: {0}")]
-    IoError(String),
-
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
-
-    #[error("Serialization error: {0}")]
-    SerializationError(String),
 
     #[error("Authentication required")]
     AuthenticationRequired,
@@ -64,6 +73,12 @@ pub enum CLIERPError {
 
     #[error("Database error: {0}")]
     DatabaseError(String),
+
+    #[error("IO error: {0}")]
+    IoError(String),
+
+    #[error("Serialization error: {0}")]
+    SerializationError(String),
 
     #[error("Permission denied: {0}")]
     PermissionDenied(String),

@@ -1,4 +1,8 @@
 use serde::{Deserialize, Serialize};
+use diesel::prelude::*;
+use diesel::query_dsl::LoadQuery;
+use diesel::sqlite::Sqlite;
+use crate::core::result::CLIERPResult;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PaginationParams {
@@ -128,4 +132,40 @@ impl<T> Paginate<T> for Vec<T> {
 
         PaginatedResult::new(data, params, total_count)
     }
+}
+
+// Extension trait for paginating query results
+pub trait PaginateResult<T> {
+    fn paginate_result(
+        self,
+        params: &PaginationParams,
+        conn: &mut SqliteConnection,
+    ) -> CLIERPResult<PaginatedResult<T>>;
+}
+
+// Helper function to paginate any query that can be loaded
+pub fn paginate_query<T, Q>(
+    query: Q,
+    params: &PaginationParams,
+    conn: &mut SqliteConnection,
+) -> CLIERPResult<PaginatedResult<T>>
+where
+    Q: LoadQuery<'static, SqliteConnection, T>,
+{
+    // Load all data to get total count (simplified approach)
+    let all_data: Vec<T> = query.load(conn)?;
+    let total_count = all_data.len() as i64;
+
+    // Apply pagination in memory
+    let offset = params.offset() as usize;
+    let limit = params.limit() as usize;
+
+    let data = if offset >= all_data.len() {
+        Vec::new()
+    } else {
+        let end = (offset + limit).min(all_data.len());
+        all_data.into_iter().skip(offset).take(end - offset).collect()
+    };
+
+    Ok(PaginatedResult::new(data, params, total_count))
 }

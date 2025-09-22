@@ -4,7 +4,7 @@ use tabled::{Table, Tabled};
 use crate::core::result::CLIERPResult;
 use crate::modules::crm::{CustomerService, LeadService};
 use crate::database::{CustomerType, CustomerStatus, LeadPriority, LeadStatus};
-use crate::utils::formatting::{format_currency, format_datetime, format_date};
+use crate::utils::formatting::{format_currency, format_optional_currency, format_datetime, format_date};
 use crate::utils::pagination::PaginationParams;
 
 pub fn crm_command() -> Command {
@@ -358,15 +358,15 @@ fn handle_customer_list(matches: &ArgMatches) -> CLIERPResult<()> {
         ..Default::default()
     };
 
-    let pagination = PaginationParams::new(page, per_page);
+    let pagination = PaginationParams::new(page as usize, per_page as i64);
     let result = CustomerService::list_customers(&mut conn, &filters, &pagination)?;
 
-    if result.items.is_empty() {
+    if result.data.is_empty() {
         println!("No customers found.");
         return Ok(());
     }
 
-    let rows: Vec<CustomerTableRow> = result.items
+    let rows: Vec<CustomerTableRow> = result.data
         .into_iter()
         .map(|customer| CustomerTableRow {
             id: customer.id,
@@ -376,14 +376,14 @@ fn handle_customer_list(matches: &ArgMatches) -> CLIERPResult<()> {
             email: customer.email.unwrap_or_else(|| "-".to_string()),
             phone: customer.phone.unwrap_or_else(|| "-".to_string()),
             status: customer.status,
-            credit_limit: format_currency(customer.credit_limit),
+            credit_limit: format_optional_currency(customer.credit_limit),
             created_at: format_datetime(&customer.created_at),
         })
         .collect();
 
     let table = Table::new(rows);
     println!("{}", table);
-    println!("Page {} of {} ({} total)", result.page, result.total_pages, result.total_items);
+    println!("Page {} of {} ({} total)", result.pagination.current_page, result.pagination.total_pages, result.pagination.total_count);
 
     Ok(())
 }
@@ -410,7 +410,7 @@ fn handle_customer_show(matches: &ArgMatches) -> CLIERPResult<()> {
     if let Some(tax_id) = &customer_with_stats.customer.tax_id {
         println!("Tax ID: {}", tax_id);
     }
-    println!("Credit Limit: {}", format_currency(customer_with_stats.customer.credit_limit));
+    println!("Credit Limit: {}", format_optional_currency(customer_with_stats.customer.credit_limit));
     println!("Status: {}", customer_with_stats.customer.status);
     if let Some(notes) = &customer_with_stats.customer.notes {
         println!("Notes: {}", notes);
@@ -516,7 +516,7 @@ fn handle_lead_add(matches: &ArgMatches) -> CLIERPResult<()> {
     println!("ID: {}", lead.id);
     println!("Title: {}", lead.title);
     println!("Source: {}", lead.lead_source);
-    println!("Estimated Value: {}", format_currency(lead.estimated_value));
+    println!("Estimated Value: {}", format_optional_currency(lead.estimated_value));
     println!("Priority: {}", lead.priority);
 
     Ok(())
@@ -540,15 +540,15 @@ fn handle_lead_list(matches: &ArgMatches) -> CLIERPResult<()> {
         ..Default::default()
     };
 
-    let pagination = PaginationParams::new(page, per_page);
+    let pagination = PaginationParams::new(page as usize, per_page as i64);
     let result = LeadService::list_leads(&mut conn, &filters, &pagination)?;
 
-    if result.items.is_empty() {
+    if result.data.is_empty() {
         println!("No leads found.");
         return Ok(());
     }
 
-    let rows: Vec<LeadTableRow> = result.items
+    let rows: Vec<LeadTableRow> = result.data
         .into_iter()
         .map(|lead_with_customer| LeadTableRow {
             id: lead_with_customer.lead.id,
@@ -557,8 +557,8 @@ fn handle_lead_list(matches: &ArgMatches) -> CLIERPResult<()> {
             source: lead_with_customer.lead.lead_source,
             status: lead_with_customer.lead.status,
             priority: lead_with_customer.lead.priority,
-            value: format_currency(lead_with_customer.lead.estimated_value),
-            probability: format!("{}%", lead_with_customer.lead.probability),
+            value: format_optional_currency(lead_with_customer.lead.estimated_value),
+            probability: lead_with_customer.lead.probability.map(|p| format!("{}%", p)).unwrap_or_else(|| "-".to_string()),
             assigned_to: lead_with_customer.assigned_employee.unwrap_or_else(|| "-".to_string()),
             close_date: lead_with_customer.lead.expected_close_date.map(|d| format_date(&d)).unwrap_or_else(|| "-".to_string()),
         })
@@ -566,7 +566,7 @@ fn handle_lead_list(matches: &ArgMatches) -> CLIERPResult<()> {
 
     let table = Table::new(rows);
     println!("{}", table);
-    println!("Page {} of {} ({} total)", result.page, result.total_pages, result.total_items);
+    println!("Page {} of {} ({} total)", result.pagination.current_page, result.pagination.total_pages, result.pagination.total_count);
 
     Ok(())
 }
@@ -590,8 +590,8 @@ fn handle_lead_show(matches: &ArgMatches) -> CLIERPResult<()> {
     println!("Source: {}", lead_with_customer.lead.lead_source);
     println!("Status: {}", lead_with_customer.lead.status);
     println!("Priority: {}", lead_with_customer.lead.priority);
-    println!("Estimated Value: {}", format_currency(lead_with_customer.lead.estimated_value));
-    println!("Probability: {}%", lead_with_customer.lead.probability);
+    println!("Estimated Value: {}", format_optional_currency(lead_with_customer.lead.estimated_value));
+    println!("Probability: {}", lead_with_customer.lead.probability.map(|p| format!("{}%", p)).unwrap_or_else(|| "-".to_string()));
     println!("Expected Close: {}", lead_with_customer.lead.expected_close_date.map(|d| format_date(&d)).unwrap_or_else(|| "-".to_string()));
     println!("Assigned To: {}", lead_with_customer.assigned_employee.unwrap_or_else(|| "-".to_string()));
     if let Some(description) = &lead_with_customer.lead.description {
@@ -627,7 +627,7 @@ fn handle_lead_update_status(matches: &ArgMatches) -> CLIERPResult<()> {
     println!("ID: {}", lead.id);
     println!("Title: {}", lead.title);
     println!("Status: {}", lead.status);
-    println!("Probability: {}%", lead.probability);
+    println!("Probability: {}", lead.probability.map(|p| format!("{}%", p)).unwrap_or_else(|| "-".to_string()));
 
     Ok(())
 }

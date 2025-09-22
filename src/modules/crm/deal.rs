@@ -61,11 +61,11 @@ impl DealService {
             deal_name: title.to_string(),
             deal_value,
             stage: DealStage::Qualification.to_string(),
-            probability: Self::calculate_probability_for_stage(&DealStage::Qualification),
+            probability: Some(Self::calculate_probability_for_stage(&DealStage::Qualification)),
             close_date: expected_close_date,
             assigned_to,
             products: None,
-            discount_percent: 0,
+            discount_percent: Some(0),
             final_amount: None,
             notes: notes.map(|s| s.to_string()),
         };
@@ -97,11 +97,15 @@ impl DealService {
 
         if let Some(deal) = deal {
             // Get lead and customer info
-            let (lead, customer): (Lead, Option<Customer>) = leads::table
-                .left_join(customers::table)
-                .filter(leads::id.eq(deal.lead_id))
-                .select((Lead::as_select(), customers::all_columns.nullable()))
-                .first(conn)?;
+            let (lead, customer): (Lead, Option<Customer>) = if let Some(lead_id) = deal.lead_id {
+                leads::table
+                    .left_join(customers::table)
+                    .filter(leads::id.eq(lead_id))
+                    .select((Lead::as_select(), customers::all_columns.nullable()))
+                    .first(conn)?
+            } else {
+                return Err(crate::core::error::CLIERPError::NotFound("Lead not found for deal".to_string()));
+            };
 
             // Get assigned employee name if available
             let assigned_employee = if let Some(assigned_to) = deal.assigned_to {
@@ -131,9 +135,9 @@ impl DealService {
         pagination: &PaginationParams,
     ) -> Result<PaginatedResult<DealWithDetails>> {
         let mut query = deals::table
-            .inner_join(leads::table)
-            .left_join(customers::table.on(customers::dsl::id.eq(leads::dsl::customer_id.nullable())))
-            .left_join(employees::table.on(employees::dsl::id.eq(deals::dsl::assigned_to.nullable())))
+            .inner_join(leads::table.on(leads::dsl::id.eq(deals::dsl::lead_id.assume_not_null())))
+            .left_join(customers::table.on(customers::dsl::id.eq(leads::dsl::customer_id.assume_not_null())))
+            .left_join(employees::table.on(employees::dsl::id.eq(deals::dsl::assigned_to.assume_not_null())))
             .select((
                 Deal::as_select(),
                 Lead::as_select(),
@@ -209,7 +213,7 @@ impl DealService {
 
         let results: Vec<(Deal, Lead, Option<Customer>, Option<String>)> = query
             .offset(pagination.offset())
-            .limit(pagination.limit)
+            .limit(pagination.limit())
             .load(conn)?;
 
         let total_items = deals::table.count().get_result::<i64>(conn)?;
@@ -225,11 +229,12 @@ impl DealService {
             .collect();
 
         Ok(PaginatedResult {
-            items: deals_with_details,
-            total_items,
-            page: pagination.page,
-            per_page: pagination.per_page,
-            total_pages: (total_items as f64 / pagination.per_page as f64).ceil() as i64,
+            data: deals_with_details,
+            pagination: crate::utils::pagination::PaginationInfo::new(
+                pagination.page(),
+                pagination.per_page(),
+                total_items
+            ),
         })
     }
 
@@ -257,10 +262,10 @@ impl DealService {
             deal.notes
         };
 
-        // Set actual close date if deal is closed
+        // Set actual close date if deal is closed - note: using close_date field
         let actual_close_date = match new_stage {
             DealStage::ClosedWon | DealStage::ClosedLost => Some(Utc::now().naive_utc().date()),
-            _ => deal.actual_close_date,
+            _ => deal.close_date,
         };
 
         diesel::update(deals::table.find(deal_id))
@@ -311,7 +316,7 @@ impl DealService {
         }
 
         if let Some(deal_value) = deal_value {
-            if *deal_value < 0 {
+            if deal_value < 0 {
                 return Err(crate::core::error::CLIERPError::Validation(
                     "Deal value cannot be negative".to_string()
                 ));
@@ -326,17 +331,17 @@ impl DealService {
         }
         if let Some(value_val) = deal_value {
             diesel::update(deals::table.find(deal_id))
-                .set(deals::dsl::deal_value.eq(*value_val))
+                .set(deals::dsl::deal_value.eq(value_val))
                 .execute(conn)?;
         }
         if let Some(date_val) = expected_close_date {
             diesel::update(deals::table.find(deal_id))
-                .set(deals::dsl::close_date.eq(*date_val))
+                .set(deals::dsl::close_date.eq(date_val))
                 .execute(conn)?;
         }
         if let Some(assigned_val) = assigned_to {
             diesel::update(deals::table.find(deal_id))
-                .set(deals::dsl::assigned_to.eq(*assigned_val))
+                .set(deals::dsl::assigned_to.eq(assigned_val))
                 .execute(conn)?;
         }
         if let Some(notes_val) = notes {
@@ -369,9 +374,9 @@ impl DealService {
         stage: DealStage,
     ) -> Result<Vec<DealWithDetails>> {
         let results: Vec<(Deal, Lead, Option<Customer>, Option<String>)> = deals::table
-            .inner_join(leads::table)
-            .left_join(customers::table.on(customers::dsl::id.eq(leads::dsl::customer_id.nullable())))
-            .left_join(employees::table.on(employees::dsl::id.eq(deals::dsl::assigned_to.nullable())))
+            .inner_join(leads::table.on(leads::dsl::id.eq(deals::dsl::lead_id.assume_not_null())))
+            .left_join(customers::table.on(customers::dsl::id.eq(leads::dsl::customer_id.assume_not_null())))
+            .left_join(employees::table.on(employees::dsl::id.eq(deals::dsl::assigned_to.assume_not_null())))
             .filter(deals::dsl::stage.eq(stage.to_string()))
             .select((
                 Deal::as_select(),
@@ -508,10 +513,12 @@ impl DealService {
 
     fn calculate_probability_for_stage(stage: &DealStage) -> i32 {
         match stage {
+            DealStage::Prospecting => 10,
             DealStage::Qualification => 20,
             DealStage::NeedsAnalysis => 40,
             DealStage::Proposal => 60,
             DealStage::Negotiation => 80,
+            DealStage::Closing => 90,
             DealStage::ClosedWon => 100,
             DealStage::ClosedLost => 0,
         }

@@ -494,21 +494,28 @@ fn display_report_result(result: &ReportResult, matches: &ArgMatches) -> CLIERPR
 
             match &result.data {
                 ReportData::Table(table_data) => {
-                    use tabled::{Table, settings::Style};
-                    let mut table = Table::new(&table_data.rows);
+                    use tabled::{Table, settings::Style, builder::Builder};
+                    let mut builder = Builder::default();
+                    builder.push_record(&table_data.headers);
+                    for row in &table_data.rows {
+                        builder.push_record(row);
+                    }
+                    let mut table = builder.build();
                     table.with(Style::modern());
                     println!("{}", table);
                 }
                 ReportData::Mixed(sections) => {
                     for section in sections {
                         println!("## {}", section.title);
-                        if let Some(desc) = &section.description {
-                            println!("{}", desc);
-                        }
-                        match &section.content {
+                        match &section.data {
                             ReportData::Table(table_data) => {
-                                use tabled::{Table, settings::Style};
-                                let mut table = Table::new(&table_data.rows);
+                                use tabled::{Table, settings::Style, builder::Builder};
+                                let mut builder = Builder::default();
+                                builder.push_record(&table_data.headers);
+                                for row in &table_data.rows {
+                                    builder.push_record(row);
+                                }
+                                let mut table = builder.build();
                                 table.with(Style::modern());
                                 println!("{}", table);
                             }
@@ -522,7 +529,7 @@ fn display_report_result(result: &ReportResult, matches: &ArgMatches) -> CLIERPR
 
             if let Some(summary) = &result.summary {
                 println!("\n=== SUMMARY ===");
-                for (key, value) in &summary.metrics {
+                for (key, value) in &summary.key_metrics {
                     println!("{}: {}", key, value);
                 }
                 if !summary.insights.is_empty() {

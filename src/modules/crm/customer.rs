@@ -72,7 +72,7 @@ impl CustomerService {
             customer_type: customer_type.to_string(),
             company_name: company_name.map(|s| s.to_string()),
             tax_id: tax_id.map(|s| s.to_string()),
-            credit_limit: credit_limit.unwrap_or(0),
+            credit_limit: credit_limit,
             status: CustomerStatus::Active.to_string(),
             notes: notes.map(|s| s.to_string()),
         };
@@ -203,7 +203,15 @@ impl CustomerService {
             _ => query.order(customers::created_at.desc()),
         };
 
-        query.paginate_result(pagination, conn)
+        let offset = pagination.offset();
+        let limit = pagination.limit();
+        let results = query
+            .offset(offset)
+            .limit(limit)
+            .load::<Customer>(conn)?;
+
+        let total_count = customers::table.count().get_result::<i64>(conn)?;
+        Ok(PaginatedResult::new(results, pagination, total_count))
     }
 
     pub fn get_customer_summaries(
@@ -233,7 +241,7 @@ impl CustomerService {
 
         let results: Vec<(i32, String, String, String, i64, Option<i64>, String)> = customer_query
             .offset(pagination.offset())
-            .limit(pagination.limit)
+            .limit(pagination.limit())
             .load(conn)?;
 
         let total_items = customers::table.count().get_result::<i64>(conn)?;
@@ -253,13 +261,7 @@ impl CustomerService {
             })
             .collect();
 
-        Ok(PaginatedResult {
-            items: summaries,
-            total_items,
-            page: pagination.page,
-            per_page: pagination.per_page,
-            total_pages: (total_items as f64 / pagination.per_page as f64).ceil() as i64,
-        })
+        Ok(PaginatedResult::new(summaries, pagination, total_items))
     }
 
     pub fn update_customer(
@@ -301,67 +303,65 @@ impl CustomerService {
         }
 
         // Build update query - update each field individually
-        use crate::database::schema::customers::dsl::*;
-
         let current_time = Utc::now().naive_utc();
 
         if let Some(name_val) = name {
-            diesel::update(customers.find(customer_id))
-                .set(name.eq(name_val))
+            diesel::update(customers::table.find(customer_id))
+                .set(customers::name.eq(name_val))
                 .execute(conn)?;
         }
 
         if let Some(email_val) = email {
-            diesel::update(customers.find(customer_id))
-                .set(email.eq(email_val.map(|s| s.to_string())))
+            diesel::update(customers::table.find(customer_id))
+                .set(customers::email.eq(email_val.map(|s| s.to_string())))
                 .execute(conn)?;
         }
 
         if let Some(phone_val) = phone {
-            diesel::update(customers.find(customer_id))
-                .set(phone.eq(phone_val.map(|s| s.to_string())))
+            diesel::update(customers::table.find(customer_id))
+                .set(customers::phone.eq(phone_val.map(|s| s.to_string())))
                 .execute(conn)?;
         }
 
         if let Some(address_val) = address {
-            diesel::update(customers.find(customer_id))
-                .set(address.eq(address_val.map(|s| s.to_string())))
+            diesel::update(customers::table.find(customer_id))
+                .set(customers::address.eq(address_val.map(|s| s.to_string())))
                 .execute(conn)?;
         }
 
         if let Some(company_val) = company_name {
-            diesel::update(customers.find(customer_id))
-                .set(company_name.eq(company_val.map(|s| s.to_string())))
+            diesel::update(customers::table.find(customer_id))
+                .set(customers::company_name.eq(company_val.map(|s| s.to_string())))
                 .execute(conn)?;
         }
 
         if let Some(tax_val) = tax_id {
-            diesel::update(customers.find(customer_id))
-                .set(tax_id.eq(tax_val.map(|s| s.to_string())))
+            diesel::update(customers::table.find(customer_id))
+                .set(customers::tax_id.eq(tax_val.map(|s| s.to_string())))
                 .execute(conn)?;
         }
 
         if let Some(limit_val) = credit_limit {
-            diesel::update(customers.find(customer_id))
-                .set(credit_limit.eq(limit_val))
+            diesel::update(customers::table.find(customer_id))
+                .set(customers::credit_limit.eq(limit_val))
                 .execute(conn)?;
         }
 
         if let Some(status_val) = status {
-            diesel::update(customers.find(customer_id))
-                .set(status.eq(status_val.to_string()))
+            diesel::update(customers::table.find(customer_id))
+                .set(customers::status.eq(status_val.to_string()))
                 .execute(conn)?;
         }
 
         if let Some(notes_val) = notes {
-            diesel::update(customers.find(customer_id))
-                .set(notes.eq(notes_val.map(|s| s.to_string())))
+            diesel::update(customers::table.find(customer_id))
+                .set(customers::notes.eq(notes_val.map(|s| s.to_string())))
                 .execute(conn)?;
         }
 
         // Always update the updated_at timestamp
-        diesel::update(customers.find(customer_id))
-            .set(updated_at.eq(current_time))
+        diesel::update(customers::table.find(customer_id))
+            .set(customers::updated_at.eq(current_time))
             .execute(conn)?;
 
         // Get the updated customer

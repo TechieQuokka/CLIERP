@@ -2,6 +2,9 @@ use diesel::prelude::*;
 use chrono::Utc;
 use serde::Serialize;
 use crate::core::result::CLIERPResult;
+
+// Type alias for convenience
+type Result<T> = CLIERPResult<T>;
 use crate::database::{
     DatabaseConnection, Customer, NewCustomer, CustomerType, CustomerStatus, CustomerWithStats,
     CustomerSummary
@@ -27,20 +30,33 @@ impl CustomerService {
         notes: Option<&str>,
     ) -> Result<Customer> {
         // Validate input
-        let validator = Validator::new();
-        validator
-            .required("name", name)?
-            .min_length("name", name, 2)?
-            .max_length("name", name, 200)?;
+        validate_required_string(name, "name")?;
+        if name.len() < 2 {
+            return Err(crate::core::error::CLIERPError::Validation(
+                "Name must be at least 2 characters long".to_string()
+            ));
+        }
+        if name.len() > 200 {
+            return Err(crate::core::error::CLIERPError::Validation(
+                "Name cannot exceed 200 characters".to_string()
+            ));
+        }
 
         if let Some(email) = email {
-            validator.email("email", email)?;
+            validate_email(email)?;
         }
 
         if let Some(phone) = phone {
-            validator
-                .min_length("phone", phone, 8)?
-                .max_length("phone", phone, 20)?;
+            if phone.len() < 8 {
+                return Err(crate::core::error::CLIERPError::Validation(
+                    "Phone must be at least 8 characters long".to_string()
+                ));
+            }
+            if phone.len() > 20 {
+                return Err(crate::core::error::CLIERPError::Validation(
+                    "Phone cannot exceed 20 characters".to_string()
+                ));
+            }
         }
 
         // Generate customer code
@@ -63,8 +79,12 @@ impl CustomerService {
 
         diesel::insert_into(customers::table)
             .values(&new_customer)
-            .returning(Customer::as_returning())
-            .get_result(conn)
+            .execute(conn)?;
+
+        // Get the inserted customer by customer code since SQLite doesn't support RETURNING
+        customers::table
+            .filter(customers::customer_code.eq(&new_customer.customer_code))
+            .first::<Customer>(conn)
             .map_err(Into::into)
     }
 
@@ -262,16 +282,22 @@ impl CustomerService {
             ))?;
 
         // Validate input
-        let validator = Validator::new();
         if let Some(name) = name {
-            validator
-                .required("name", name)?
-                .min_length("name", name, 2)?
-                .max_length("name", name, 200)?;
+            validate_required_string(name, "name")?;
+            if name.len() < 2 {
+                return Err(crate::core::error::CLIERPError::Validation(
+                    "Name must be at least 2 characters long".to_string()
+                ));
+            }
+            if name.len() > 200 {
+                return Err(crate::core::error::CLIERPError::Validation(
+                    "Name cannot exceed 200 characters".to_string()
+                ));
+            }
         }
 
         if let Some(Some(email)) = email {
-            validator.email("email", email)?;
+            validate_email(email)?;
         }
 
         // Build update query
@@ -309,9 +335,12 @@ impl CustomerService {
         // Always update the updated_at timestamp
         update_query = update_query.set(updated_at.eq(Utc::now().naive_utc()));
 
-        update_query
-            .returning(Customer::as_returning())
-            .get_result(conn)
+        update_query.execute(conn)?;
+
+        // Get the updated customer
+        customers::table
+            .find(customer_id)
+            .first::<Customer>(conn)
             .map_err(Into::into)
     }
 

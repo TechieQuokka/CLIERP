@@ -16,7 +16,6 @@ pub fn inventory_command() -> Command {
             product_commands(),
             stock_commands(),
             audit_commands(),
-            supplier_commands(),
             purchase_commands(),
         ])
 }

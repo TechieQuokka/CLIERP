@@ -170,7 +170,7 @@ impl ReportEngine {
 
     pub fn generate_report(&self, report_id: &str, config: ReportConfig) -> Result<ReportResult> {
         let generator = self.generators.get(report_id)
-            .ok_or_else(|| crate::core::error::AppError::NotFound(
+            .ok_or_else(|| crate::core::error::CLIERPError::NotFound(
                 format!("Report generator '{}' not found", report_id)
             ))?;
 
@@ -222,7 +222,7 @@ pub fn format_table_data(
 }
 
 pub fn format_currency(amount: i32) -> String {
-    format!("₩{:,}", amount)
+    format!("₩{}", amount)
 }
 
 pub fn format_percentage(value: f64) -> String {
@@ -234,7 +234,7 @@ pub fn format_metric_value(metric: &MetricValue) -> String {
         MetricValue::Number(n) => format!("{:.2}", n),
         MetricValue::Currency(c) => format_currency(*c),
         MetricValue::Percentage(p) => format_percentage(*p),
-        MetricValue::Count(c) => format!("{:,}", c),
+        MetricValue::Count(c) => format!("{}", c),
         MetricValue::Text(t) => t.clone(),
     }
 }

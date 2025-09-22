@@ -1,6 +1,9 @@
 use diesel::prelude::*;
 use chrono::{Utc, NaiveDate};
 use crate::core::result::CLIERPResult;
+
+// Type alias for convenience
+type Result<T> = CLIERPResult<T>;
 use crate::database::{DatabaseConnection, Supplier, NewSupplier, SupplierStatus};
 use crate::database::schema::suppliers;
 use crate::utils::validation::{validate_email, validate_required_string};
@@ -21,17 +24,31 @@ impl SupplierService {
         payment_terms: Option<&str>,
     ) -> Result<Supplier> {
         // Validate input
-        let validator = Validator::new();
-        validator
-            .required("supplier_code", supplier_code)?
-            .required("name", name)?
-            .min_length("supplier_code", supplier_code, 2)?
-            .max_length("supplier_code", supplier_code, 20)?
-            .min_length("name", name, 2)?
-            .max_length("name", name, 200)?;
+        validate_required_string(supplier_code, "supplier_code")?;
+        validate_required_string(name, "name")?;
+        if supplier_code.len() < 2 {
+            return Err(crate::core::error::CLIERPError::Validation(
+                "Supplier code must be at least 2 characters long".to_string()
+            ));
+        }
+        if supplier_code.len() > 20 {
+            return Err(crate::core::error::CLIERPError::Validation(
+                "Supplier code cannot exceed 20 characters".to_string()
+            ));
+        }
+        if name.len() < 2 {
+            return Err(crate::core::error::CLIERPError::Validation(
+                "Name must be at least 2 characters long".to_string()
+            ));
+        }
+        if name.len() > 200 {
+            return Err(crate::core::error::CLIERPError::Validation(
+                "Name cannot exceed 200 characters".to_string()
+            ));
+        }
 
         if let Some(email) = email {
-            validator.email("email", email)?;
+            validate_email(email)?;
         }
 
         // Check if supplier code already exists
@@ -60,8 +77,12 @@ impl SupplierService {
 
         diesel::insert_into(suppliers::table)
             .values(&new_supplier)
-            .returning(Supplier::as_returning())
-            .get_result(conn)
+            .execute(conn)?;
+
+        // Get the inserted supplier by supplier code since SQLite doesn't support RETURNING
+        suppliers::table
+            .filter(suppliers::supplier_code.eq(&new_supplier.supplier_code))
+            .first::<Supplier>(conn)
             .map_err(Into::into)
     }
 
@@ -148,16 +169,22 @@ impl SupplierService {
             ))?;
 
         // Validate input
-        let validator = Validator::new();
         if let Some(name) = name {
-            validator
-                .required("name", name)?
-                .min_length("name", name, 2)?
-                .max_length("name", name, 200)?;
+            validate_required_string(name, "name")?;
+            if name.len() < 2 {
+                return Err(crate::core::error::CLIERPError::Validation(
+                    "Name must be at least 2 characters long".to_string()
+                ));
+            }
+            if name.len() > 200 {
+                return Err(crate::core::error::CLIERPError::Validation(
+                    "Name cannot exceed 200 characters".to_string()
+                ));
+            }
         }
 
         if let Some(Some(email)) = email {
-            validator.email("email", email)?;
+            validate_email(email)?;
         }
 
         // Build update query
@@ -189,9 +216,12 @@ impl SupplierService {
         // Always update the updated_at timestamp
         target = target.set(updated_at.eq(Utc::now().naive_utc()));
 
-        target
-            .returning(Supplier::as_returning())
-            .get_result(conn)
+        target.execute(conn)?;
+
+        // Get the updated supplier
+        crate::database::schema::suppliers::table
+            .find(supplier_id)
+            .first::<Supplier>(conn)
             .map_err(Into::into)
     }
 

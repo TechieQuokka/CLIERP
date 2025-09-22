@@ -1,6 +1,9 @@
 use diesel::prelude::*;
 use chrono::{Utc, NaiveDate};
 use crate::core::result::CLIERPResult;
+
+// Type alias for convenience
+type Result<T> = CLIERPResult<T>;
 use crate::database::{
     DatabaseConnection, Campaign, NewCampaign, CampaignStatus, CampaignType, CampaignWithStats
 };
@@ -24,11 +27,17 @@ impl CampaignService {
         goals: Option<&str>,
     ) -> Result<Campaign> {
         // Validate input
-        let validator = Validator::new();
-        validator
-            .required("name", name)?
-            .min_length("name", name, 2)?
-            .max_length("name", name, 200)?;
+        validate_required_string(name, "name")?;
+        if name.len() < 2 {
+            return Err(crate::core::error::CLIERPError::Validation(
+                "Name must be at least 2 characters long".to_string()
+            ));
+        }
+        if name.len() > 200 {
+            return Err(crate::core::error::CLIERPError::Validation(
+                "Name cannot exceed 200 characters".to_string()
+            ));
+        }
 
         if let Some(end_date) = end_date {
             if end_date <= start_date {
@@ -39,7 +48,11 @@ impl CampaignService {
         }
 
         if let Some(budget) = budget {
-            validator.positive("budget", *budget as f64)?;
+            if *budget < 0 {
+                return Err(crate::core::error::CLIERPError::Validation(
+                    "Budget cannot be negative".to_string()
+                ));
+            }
         }
 
         // Generate campaign code
@@ -62,8 +75,13 @@ impl CampaignService {
 
         diesel::insert_into(campaigns::table)
             .values(&new_campaign)
-            .returning(Campaign::as_returning())
-            .get_result(conn)
+            .execute(conn)?;
+
+        // Get the inserted campaign by name since SQLite doesn't support RETURNING
+        campaigns::table
+            .filter(campaigns::dsl::name.eq(&new_campaign.name))
+            .order(campaigns::dsl::created_at.desc())
+            .first::<Campaign>(conn)
             .map_err(Into::into)
     }
 
@@ -77,7 +95,7 @@ impl CampaignService {
 
     pub fn get_campaign_by_code(conn: &mut DatabaseConnection, campaign_code: &str) -> Result<Option<Campaign>> {
         campaigns::table
-            .filter(campaigns::campaign_code.eq(campaign_code))
+            .filter(campaigns::dsl::name.eq(campaign_code))
             .first::<Campaign>(conn)
             .optional()
             .map_err(Into::into)
@@ -140,73 +158,72 @@ impl CampaignService {
         // Apply filters
         if let Some(search) = &filters.search {
             query = query.filter(
-                campaigns::name.like(format!("%{}%", search))
-                    .or(campaigns::campaign_code.like(format!("%{}%", search)))
-                    .or(campaigns::description.like(format!("%{}%", search)))
+                campaigns::dsl::name.like(format!("%{}%", search))
+                    .or(campaigns::dsl::description.like(format!("%{}%", search)))
             );
         }
 
         if let Some(status_filter) = &filters.status {
-            query = query.filter(campaigns::status.eq(status_filter));
+            query = query.filter(campaigns::dsl::status.eq(status_filter));
         }
 
         if let Some(type_filter) = &filters.filter_type {
-            query = query.filter(campaigns::campaign_type.eq(type_filter));
+            query = query.filter(campaigns::dsl::campaign_type.eq(type_filter));
         }
 
         if let Some(date_from) = filters.date_from {
-            query = query.filter(campaigns::start_date.ge(date_from));
+            query = query.filter(campaigns::dsl::start_date.ge(date_from));
         }
 
         if let Some(date_to) = filters.date_to {
-            query = query.filter(campaigns::end_date.le(date_to));
+            query = query.filter(campaigns::dsl::end_date.le(date_to));
         }
 
         // Apply sorting
         query = match filters.sort_by.as_deref() {
             Some("name") => {
                 if filters.sort_desc {
-                    query.order(campaigns::name.desc())
+                    query.order(campaigns::dsl::name.desc())
                 } else {
-                    query.order(campaigns::name.asc())
+                    query.order(campaigns::dsl::name.asc())
                 }
             }
             Some("code") => {
                 if filters.sort_desc {
-                    query.order(campaigns::campaign_code.desc())
+                    query.order(campaigns::dsl::name.desc())
                 } else {
-                    query.order(campaigns::campaign_code.asc())
+                    query.order(campaigns::dsl::name.asc())
                 }
             }
             Some("type") => {
                 if filters.sort_desc {
-                    query.order(campaigns::campaign_type.desc())
+                    query.order(campaigns::dsl::campaign_type.desc())
                 } else {
-                    query.order(campaigns::campaign_type.asc())
+                    query.order(campaigns::dsl::campaign_type.asc())
                 }
             }
             Some("status") => {
                 if filters.sort_desc {
-                    query.order(campaigns::status.desc())
+                    query.order(campaigns::dsl::status.desc())
                 } else {
-                    query.order(campaigns::status.asc())
+                    query.order(campaigns::dsl::status.asc())
                 }
             }
             Some("start_date") => {
                 if filters.sort_desc {
-                    query.order(campaigns::start_date.desc())
+                    query.order(campaigns::dsl::start_date.desc())
                 } else {
-                    query.order(campaigns::start_date.asc())
+                    query.order(campaigns::dsl::start_date.asc())
                 }
             }
             Some("created_at") => {
                 if filters.sort_desc {
-                    query.order(campaigns::created_at.desc())
+                    query.order(campaigns::dsl::created_at.desc())
                 } else {
-                    query.order(campaigns::created_at.asc())
+                    query.order(campaigns::dsl::created_at.asc())
                 }
             }
-            _ => query.order(campaigns::created_at.desc()),
+            _ => query.order(campaigns::dsl::created_at.desc()),
         };
 
         query.paginate_result(pagination, conn)
@@ -231,12 +248,18 @@ impl CampaignService {
             ))?;
 
         // Validate input
-        let validator = Validator::new();
         if let Some(name) = name {
-            validator
-                .required("name", name)?
-                .min_length("name", name, 2)?
-                .max_length("name", name, 200)?;
+            validate_required_string(name, "name")?;
+            if name.len() < 2 {
+                return Err(crate::core::error::CLIERPError::Validation(
+                    "Name must be at least 2 characters long".to_string()
+                ));
+            }
+            if name.len() > 200 {
+                return Err(crate::core::error::CLIERPError::Validation(
+                    "Name cannot exceed 200 characters".to_string()
+                ));
+            }
         }
 
         // Build update query
@@ -271,9 +294,12 @@ impl CampaignService {
         // Always update the updated_at timestamp
         update_query = update_query.set(updated_at.eq(Utc::now().naive_utc()));
 
-        update_query
-            .returning(Campaign::as_returning())
-            .get_result(conn)
+        update_query.execute(conn)?;
+
+        // Get the updated campaign
+        campaigns::table
+            .find(campaign_id)
+            .first::<Campaign>(conn)
             .map_err(Into::into)
     }
 
@@ -284,19 +310,23 @@ impl CampaignService {
     ) -> Result<Campaign> {
         diesel::update(campaigns::table.find(campaign_id))
             .set((
-                campaigns::status.eq(new_status.to_string()),
-                campaigns::updated_at.eq(Utc::now().naive_utc()),
+                campaigns::dsl::status.eq(new_status.to_string()),
+                campaigns::dsl::updated_at.eq(Utc::now().naive_utc()),
             ))
-            .returning(Campaign::as_returning())
-            .get_result(conn)
+            .execute(conn)?;
+
+        // Get the updated campaign
+        campaigns::table
+            .find(campaign_id)
+            .first::<Campaign>(conn)
             .map_err(Into::into)
     }
 
     pub fn delete_campaign(conn: &mut DatabaseConnection, campaign_id: i32) -> Result<bool> {
         // Check if campaign has any leads
         let has_leads = leads::table
-            .inner_join(campaigns::table.on(leads::lead_source.eq(campaigns::campaign_code)))
-            .filter(campaigns::id.eq(campaign_id))
+            .inner_join(campaigns::table.on(leads::dsl::lead_source.eq(campaigns::dsl::name)))
+            .filter(campaigns::dsl::id.eq(campaign_id))
             .first::<crate::database::Lead>(conn)
             .optional()?
             .is_some();
@@ -318,8 +348,8 @@ impl CampaignService {
         status: CampaignStatus,
     ) -> Result<Vec<Campaign>> {
         campaigns::table
-            .filter(campaigns::status.eq(status.to_string()))
-            .order(campaigns::created_at.desc())
+            .filter(campaigns::dsl::status.eq(status.to_string()))
+            .order(campaigns::dsl::created_at.desc())
             .load::<Campaign>(conn)
             .map_err(Into::into)
     }
@@ -328,21 +358,21 @@ impl CampaignService {
         let today = Utc::now().naive_utc().date();
 
         campaigns::table
-            .filter(campaigns::status.eq(CampaignStatus::Active.to_string()))
-            .filter(campaigns::start_date.le(today))
+            .filter(campaigns::dsl::status.eq(CampaignStatus::Active.to_string()))
+            .filter(campaigns::dsl::start_date.le(today))
             .filter(
-                campaigns::end_date.is_null()
-                    .or(campaigns::end_date.ge(today))
+                campaigns::dsl::end_date.is_null()
+                    .or(campaigns::dsl::end_date.ge(today))
             )
-            .order(campaigns::start_date.asc())
+            .order(campaigns::dsl::start_date.asc())
             .load::<Campaign>(conn)
             .map_err(Into::into)
     }
 
     pub fn get_campaign_performance(conn: &mut DatabaseConnection) -> Result<Vec<CampaignPerformance>> {
         let campaigns: Vec<Campaign> = campaigns::table
-            .filter(campaigns::status.ne(CampaignStatus::Draft.to_string()))
-            .order(campaigns::created_at.desc())
+            .filter(campaigns::dsl::status.ne(CampaignStatus::Draft.to_string()))
+            .order(campaigns::dsl::created_at.desc())
             .load(conn)?;
 
         let mut performance = Vec::new();
@@ -378,30 +408,30 @@ impl CampaignService {
 
         // Active campaigns count
         let active_campaigns = campaigns::table
-            .filter(campaigns::status.eq(CampaignStatus::Active.to_string()))
+            .filter(campaigns::dsl::status.eq(CampaignStatus::Active.to_string()))
             .count()
             .get_result::<i64>(conn)?;
 
         // Draft campaigns count
         let draft_campaigns = campaigns::table
-            .filter(campaigns::status.eq(CampaignStatus::Draft.to_string()))
+            .filter(campaigns::dsl::status.eq(CampaignStatus::Draft.to_string()))
             .count()
             .get_result::<i64>(conn)?;
 
         // Completed campaigns count
         let completed_campaigns = campaigns::table
-            .filter(campaigns::status.eq(CampaignStatus::Completed.to_string()))
+            .filter(campaigns::dsl::status.eq(CampaignStatus::Completed.to_string()))
             .count()
             .get_result::<i64>(conn)?;
 
         // Total budget
         let total_budget: Option<i64> = campaigns::table
-            .select(diesel::dsl::sum(campaigns::budget.nullable()))
+            .select(diesel::dsl::sum(campaigns::dsl::budget.nullable()))
             .first(conn)?;
 
         // Total actual cost
         let total_actual_cost: Option<i64> = campaigns::table
-            .select(diesel::dsl::sum(campaigns::actual_cost.nullable()))
+            .select(diesel::dsl::sum(campaigns::dsl::spent.nullable()))
             .first(conn)?;
 
         Ok(CampaignStatistics {

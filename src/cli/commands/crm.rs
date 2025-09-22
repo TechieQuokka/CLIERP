@@ -305,7 +305,7 @@ fn handle_lead_command(matches: &ArgMatches) -> CLIERPResult<()> {
 }
 
 fn handle_customer_add(matches: &ArgMatches) -> CLIERPResult<()> {
-    let mut conn = crate::database::establish_connection()?;
+    let mut conn = crate::database::get_connection()?;
 
     let name = matches.get_one::<String>("name").unwrap();
     let customer_type = match matches.get_one::<String>("type").unwrap().as_str() {
@@ -343,7 +343,7 @@ fn handle_customer_add(matches: &ArgMatches) -> CLIERPResult<()> {
 }
 
 fn handle_customer_list(matches: &ArgMatches) -> CLIERPResult<()> {
-    let mut conn = crate::database::establish_connection()?;
+    let mut conn = crate::database::get_connection()?;
 
     let search = matches.get_one::<String>("search").map(|s| s.as_str());
     let customer_type = matches.get_one::<String>("type").map(|s| s.as_str());
@@ -389,7 +389,7 @@ fn handle_customer_list(matches: &ArgMatches) -> CLIERPResult<()> {
 }
 
 fn handle_customer_show(matches: &ArgMatches) -> CLIERPResult<()> {
-    let mut conn = crate::database::establish_connection()?;
+    let mut conn = crate::database::get_connection()?;
 
     let customer_id = *matches.get_one::<i32>("customer_id").unwrap();
 
@@ -427,7 +427,7 @@ fn handle_customer_show(matches: &ArgMatches) -> CLIERPResult<()> {
 }
 
 fn handle_customer_update(matches: &ArgMatches) -> CLIERPResult<()> {
-    let mut conn = crate::database::establish_connection()?;
+    let mut conn = crate::database::get_connection()?;
 
     let customer_id = *matches.get_one::<i32>("customer_id").unwrap();
     let name = matches.get_one::<String>("name").map(|s| s.as_str());
@@ -467,7 +467,7 @@ fn handle_customer_update(matches: &ArgMatches) -> CLIERPResult<()> {
 }
 
 fn handle_customer_stats() -> CLIERPResult<()> {
-    let mut conn = crate::database::establish_connection()?;
+    let mut conn = crate::database::get_connection()?;
 
     let stats = CustomerService::get_customer_statistics(&mut conn)?;
 
@@ -482,7 +482,7 @@ fn handle_customer_stats() -> CLIERPResult<()> {
 }
 
 fn handle_lead_add(matches: &ArgMatches) -> CLIERPResult<()> {
-    let mut conn = crate::database::establish_connection()?;
+    let mut conn = crate::database::get_connection()?;
 
     let title = matches.get_one::<String>("title").unwrap();
     let customer_id = matches.get_one::<i32>("customer-id").copied();
@@ -523,7 +523,7 @@ fn handle_lead_add(matches: &ArgMatches) -> CLIERPResult<()> {
 }
 
 fn handle_lead_list(matches: &ArgMatches) -> CLIERPResult<()> {
-    let mut conn = crate::database::establish_connection()?;
+    let mut conn = crate::database::get_connection()?;
 
     let search = matches.get_one::<String>("search").map(|s| s.as_str());
     let status = matches.get_one::<String>("status").map(|s| s.as_str());
@@ -572,7 +572,7 @@ fn handle_lead_list(matches: &ArgMatches) -> CLIERPResult<()> {
 }
 
 fn handle_lead_show(matches: &ArgMatches) -> CLIERPResult<()> {
-    let mut conn = crate::database::establish_connection()?;
+    let mut conn = crate::database::get_connection()?;
 
     let lead_id = *matches.get_one::<i32>("lead_id").unwrap();
 
@@ -607,7 +607,7 @@ fn handle_lead_show(matches: &ArgMatches) -> CLIERPResult<()> {
 }
 
 fn handle_lead_update_status(matches: &ArgMatches) -> CLIERPResult<()> {
-    let mut conn = crate::database::establish_connection()?;
+    let mut conn = crate::database::get_connection()?;
 
     let lead_id = *matches.get_one::<i32>("lead_id").unwrap();
     let status = match matches.get_one::<String>("status").unwrap().as_str() {
@@ -633,7 +633,7 @@ fn handle_lead_update_status(matches: &ArgMatches) -> CLIERPResult<()> {
 }
 
 fn handle_lead_assign(matches: &ArgMatches) -> CLIERPResult<()> {
-    let mut conn = crate::database::establish_connection()?;
+    let mut conn = crate::database::get_connection()?;
 
     let lead_id = *matches.get_one::<i32>("lead_id").unwrap();
     let employee_id = *matches.get_one::<i32>("employee_id").unwrap();
@@ -649,7 +649,7 @@ fn handle_lead_assign(matches: &ArgMatches) -> CLIERPResult<()> {
 }
 
 fn handle_lead_stats() -> CLIERPResult<()> {
-    let mut conn = crate::database::establish_connection()?;
+    let mut conn = crate::database::get_connection()?;
 
     let stats = LeadService::get_lead_statistics(&mut conn)?;
 

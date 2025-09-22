@@ -1,6 +1,9 @@
 use diesel::prelude::*;
 use chrono::{Utc, NaiveDate};
 use crate::core::result::CLIERPResult;
+
+// Type alias for convenience
+type Result<T> = CLIERPResult<T>;
 use crate::database::{
     DatabaseConnection, PurchaseOrder, NewPurchaseOrder, PurchaseItem, NewPurchaseItem,
     PurchaseOrderStatus, PurchaseItemStatus, PurchaseOrderWithItems, PurchaseItemWithProduct,
@@ -23,11 +26,14 @@ impl PurchaseOrderService {
         created_by: Option<i32>,
     ) -> Result<PurchaseOrderWithItems> {
         // Validate input
-        let validator = Validator::new();
-        validator.positive("supplier_id", supplier_id as f64)?;
+        if supplier_id <= 0 {
+            return Err(crate::core::error::CLIERPError::Validation(
+                "Supplier ID must be positive".to_string()
+            ));
+        }
 
         if items.is_empty() {
-            return Err(crate::core::error::CLIERPError::ValidationError(
+            return Err(crate::core::error::CLIERPError::Validation(
                 "Purchase order must have at least one item".to_string()
             ));
         }
@@ -49,9 +55,13 @@ impl PurchaseOrderService {
         // Calculate total amount
         let mut total_amount = 0i32;
         for item in &items {
-            validator
-                .positive("quantity", item.quantity as f64)?
-                .positive("unit_cost", item.unit_cost as f64)?;
+            // Validate positive values
+            if item.quantity <= 0 {
+                return Err(crate::core::error::CLIERPError::Validation("Quantity must be positive".to_string()));
+            }
+            if item.unit_cost <= 0 {
+                return Err(crate::core::error::CLIERPError::Validation("Unit cost must be positive".to_string()));
+            }
 
             // Verify product exists
             let _product = products::table
@@ -74,10 +84,14 @@ impl PurchaseOrderService {
                 created_by,
             };
 
-            let purchase_order = diesel::insert_into(purchase_orders::table)
+            diesel::insert_into(purchase_orders::table)
                 .values(&new_po)
-                .returning(PurchaseOrder::as_returning())
-                .get_result::<PurchaseOrder>(conn)?;
+                .execute(conn)?;
+
+            // Get the inserted purchase order by PO number
+            let purchase_order = purchase_orders::table
+                .filter(purchase_orders::po_number.eq(&new_po.po_number))
+                .first::<PurchaseOrder>(conn)?;
 
             // Create purchase order items
             let mut created_items = Vec::new();
@@ -93,10 +107,17 @@ impl PurchaseOrderService {
                     status: PurchaseItemStatus::Pending.to_string(),
                 };
 
-                let created_item = diesel::insert_into(purchase_items::table)
+                diesel::insert_into(purchase_items::table)
                     .values(&new_item)
-                    .returning(PurchaseItem::as_returning())
-                    .get_result::<PurchaseItem>(conn)?;
+                    .execute(conn)?;
+
+                // Get the inserted purchase item by searching for the most recent item with matching criteria
+                let created_item = purchase_items::table
+                    .filter(purchase_items::dsl::po_id.eq(purchase_order.id))
+                    .filter(purchase_items::dsl::product_id.eq(new_item.product_id))
+                    .filter(purchase_items::dsl::quantity.eq(new_item.quantity))
+                    .order(purchase_items::dsl::id.desc())
+                    .first::<PurchaseItem>(conn)?;
 
                 created_items.push(created_item);
             }
@@ -236,7 +257,7 @@ impl PurchaseOrderService {
 
         let results: Vec<(i32, String, String, NaiveDate, String, i32)> = query
             .offset(pagination.offset())
-            .limit(pagination.limit)
+            .limit(pagination.limit())
             .load(conn)?;
 
         let total_items = purchase_orders::table
@@ -249,7 +270,7 @@ impl PurchaseOrderService {
         let items_counts: Vec<(i32, i64)> = purchase_items::table
             .filter(purchase_items::po_id.eq_any(&po_ids))
             .group_by(purchase_items::po_id)
-            .select((purchase_items::po_id, diesel::dsl::count(purchase_items::id)))
+            .select((purchase_items::po_id, diesel::dsl::count(purchase_items::dsl::id)))
             .load(conn)?;
 
         let items_count_map: std::collections::HashMap<i32, i64> =
@@ -270,13 +291,7 @@ impl PurchaseOrderService {
             })
             .collect();
 
-        Ok(PaginatedResult {
-            items: summaries,
-            total_items,
-            page: pagination.page,
-            per_page: pagination.per_page,
-            total_pages: (total_items as f64 / pagination.per_page as f64).ceil() as i64,
-        })
+        Ok(PaginatedResult::new(summaries, &pagination, total_items))
     }
 
     pub fn approve_purchase_order(
@@ -302,8 +317,12 @@ impl PurchaseOrderService {
                 purchase_orders::approved_at.eq(Some(Utc::now().naive_utc())),
                 purchase_orders::updated_at.eq(Utc::now().naive_utc()),
             ))
-            .returning(PurchaseOrder::as_returning())
-            .get_result(conn)
+            .execute(conn)?;
+
+        Self::get_purchase_order_by_id(conn, po_id)?
+            .ok_or_else(|| crate::core::error::CLIERPError::NotFound(
+                format!("Purchase order with ID {} not found after update", po_id)
+            ))
             .map_err(Into::into)
     }
 
@@ -388,14 +407,15 @@ impl PurchaseOrderService {
                 .count()
                 .get_result::<i64>(conn)?;
 
+            let old_status = purchase_order.status.clone();
             let new_po_status = if remaining_items == 0 {
                 PurchaseOrderStatus::Received.to_string()
             } else {
-                purchase_order.status // Keep current status
+                old_status.clone() // Keep current status
             };
 
             // Update purchase order status if needed
-            if new_po_status != purchase_order.status {
+            if new_po_status != old_status {
                 diesel::update(purchase_orders::table.find(po_id))
                     .set((
                         purchase_orders::status.eq(new_po_status),

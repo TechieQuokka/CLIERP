@@ -1,6 +1,9 @@
 use diesel::prelude::*;
 use chrono::{Utc, NaiveDate};
 use crate::core::result::CLIERPResult;
+
+// Type alias for convenience
+type Result<T> = CLIERPResult<T>;
 use crate::database::{
     DatabaseConnection, Lead, NewLead, LeadStatus, LeadPriority, LeadWithCustomer, Customer
 };
@@ -25,14 +28,28 @@ impl LeadService {
         notes: Option<&str>,
     ) -> Result<Lead> {
         // Validate input
-        let validator = Validator::new();
-        validator
-            .required("title", title)?
-            .min_length("title", title, 2)?
-            .max_length("title", title, 200)?
-            .required("lead_source", lead_source)?
-            .min_length("lead_source", lead_source, 2)?
-            .positive("estimated_value", estimated_value as f64)?;
+        validate_required_string(title, "title")?;
+        if title.len() < 2 {
+            return Err(crate::core::error::CLIERPError::Validation(
+                "Title must be at least 2 characters long".to_string()
+            ));
+        }
+        if title.len() > 200 {
+            return Err(crate::core::error::CLIERPError::Validation(
+                "Title cannot exceed 200 characters".to_string()
+            ));
+        }
+        validate_required_string(lead_source, "lead_source")?;
+        if lead_source.len() < 2 {
+            return Err(crate::core::error::CLIERPError::Validation(
+                "Lead source must be at least 2 characters long".to_string()
+            ));
+        }
+        if estimated_value < 0 {
+            return Err(crate::core::error::CLIERPError::Validation(
+                "Estimated value cannot be negative".to_string()
+            ));
+        }
 
         // Verify customer exists if provided
         if let Some(customer_id) = customer_id {
@@ -63,10 +80,32 @@ impl LeadService {
             notes: notes.map(|s| s.to_string()),
         };
 
+        let current_time = Utc::now().naive_utc();
+        let new_lead_with_time = NewLead {
+            customer_id: new_lead.customer_id,
+            lead_source: new_lead.lead_source.clone(),
+            status: new_lead.status.clone(),
+            priority: new_lead.priority.clone(),
+            estimated_value: new_lead.estimated_value,
+            probability: new_lead.probability,
+            expected_close_date: new_lead.expected_close_date,
+            assigned_to: new_lead.assigned_to,
+            title: new_lead.title.clone(),
+            description: new_lead.description.clone(),
+            notes: new_lead.notes.clone(),
+        };
+
         diesel::insert_into(leads::table)
-            .values(&new_lead)
-            .returning(Lead::as_returning())
-            .get_result(conn)
+            .values(&new_lead_with_time)
+            .execute(conn)?;
+
+        // Get the inserted lead by searching for the most recent lead with matching criteria
+        leads::table
+            .filter(leads::title.eq(&new_lead.title))
+            .filter(leads::lead_source.eq(&new_lead.lead_source))
+            .filter(leads::customer_id.eq(&new_lead.customer_id))
+            .order(leads::created_at.desc())
+            .first::<Lead>(conn)
             .map_err(Into::into)
     }
 
@@ -260,8 +299,12 @@ impl LeadService {
                 leads::notes.eq(updated_notes),
                 leads::updated_at.eq(Utc::now().naive_utc()),
             ))
-            .returning(Lead::as_returning())
-            .get_result(conn)
+            .execute(conn)?;
+
+        // Get the updated lead
+        leads::table
+            .find(lead_id)
+            .first::<Lead>(conn)
             .map_err(Into::into)
     }
 
@@ -285,22 +328,35 @@ impl LeadService {
             ))?;
 
         // Validate input
-        let validator = Validator::new();
         if let Some(title) = title {
-            validator
-                .required("title", title)?
-                .min_length("title", title, 2)?
-                .max_length("title", title, 200)?;
+            validate_required_string(title, "title")?;
+            if title.len() < 2 {
+                return Err(crate::core::error::CLIERPError::Validation(
+                    "Title must be at least 2 characters long".to_string()
+                ));
+            }
+            if title.len() > 200 {
+                return Err(crate::core::error::CLIERPError::Validation(
+                    "Title cannot exceed 200 characters".to_string()
+                ));
+            }
         }
 
         if let Some(lead_source) = lead_source {
-            validator
-                .required("lead_source", lead_source)?
-                .min_length("lead_source", lead_source, 2)?;
+            validate_required_string(lead_source, "lead_source")?;
+            if lead_source.len() < 2 {
+                return Err(crate::core::error::CLIERPError::Validation(
+                    "Lead source must be at least 2 characters long".to_string()
+                ));
+            }
         }
 
         if let Some(estimated_value) = estimated_value {
-            validator.positive("estimated_value", *estimated_value as f64)?;
+            if *estimated_value < 0 {
+                return Err(crate::core::error::CLIERPError::Validation(
+                    "Estimated value cannot be negative".to_string()
+                ));
+            }
         }
 
         // Build update query
@@ -338,9 +394,12 @@ impl LeadService {
         // Always update the updated_at timestamp
         update_query = update_query.set(updated_at.eq(Utc::now().naive_utc()));
 
-        update_query
-            .returning(Lead::as_returning())
-            .get_result(conn)
+        update_query.execute(conn)?;
+
+        // Get the updated lead
+        leads::table
+            .find(lead_id)
+            .first::<Lead>(conn)
             .map_err(Into::into)
     }
 
@@ -359,8 +418,12 @@ impl LeadService {
                 leads::assigned_to.eq(Some(assigned_to)),
                 leads::updated_at.eq(Utc::now().naive_utc()),
             ))
-            .returning(Lead::as_returning())
-            .get_result(conn)
+            .execute(conn)?;
+
+        // Get the updated lead
+        leads::table
+            .find(lead_id)
+            .first::<Lead>(conn)
             .map_err(Into::into)
     }
 

@@ -14,7 +14,7 @@ impl ReportGenerator for InventoryReportsGenerator {
             "purchase_analysis" => self.generate_purchase_analysis_report(config),
             "supplier_performance" => self.generate_supplier_performance_report(config),
             "abc_analysis" => self.generate_abc_analysis_report(config),
-            _ => Err(crate::core::error::AppError::NotFound(
+            _ => Err(crate::core::error::CLIERPError::NotFound(
                 format!("Inventory report '{}' not found", config.title)
             )),
         }
@@ -776,7 +776,7 @@ impl InventoryReportsGenerator {
                     ],
                     totals: None,
                 }),
-            ),
+            },
         ];
 
         let mut key_metrics = HashMap::new();

@@ -363,7 +363,7 @@ fn handle_inventory_reports(matches: &ArgMatches) -> CLIERPResult<()> {
 
 fn handle_crm_reports(matches: &ArgMatches) -> CLIERPResult<()> {
     let mut conn = crate::database::get_connection()?;
-    let generator = CrmReportsGenerator;
+    let generator = CRMReportsGenerator;
 
     match matches.subcommand() {
         Some(("sales-performance", sub_matches)) => {
@@ -494,7 +494,7 @@ fn display_report_result(result: &ReportResult, matches: &ArgMatches) -> CLIERPR
 
             match &result.data {
                 ReportData::Table(table_data) => {
-                    use tabled::{Table, Style};
+                    use tabled::{Table, settings::Style};
                     let mut table = Table::new(&table_data.rows);
                     table.with(Style::modern());
                     println!("{}", table);
@@ -507,7 +507,7 @@ fn display_report_result(result: &ReportResult, matches: &ArgMatches) -> CLIERPR
                         }
                         match &section.content {
                             ReportData::Table(table_data) => {
-                                use tabled::{Table, Style};
+                                use tabled::{Table, settings::Style};
                                 let mut table = Table::new(&table_data.rows);
                                 table.with(Style::modern());
                                 println!("{}", table);

@@ -100,7 +100,7 @@ impl CLIApp {
             CLICommands::Hr { action } => self.execute_hr_command(action).await,
             CLICommands::Fin { action } => self.execute_fin_command(action).await,
             CLICommands::Inv { action } => self.execute_inv_command(action).await,
-            CLICommands::Crm { action } => self.execute_crm_command(action).await,
+            CLICommands::Crm { action } => self.handle_crm_command(action).await,
             CLICommands::Sales { action } => self.execute_sales_command(action).await,
             CLICommands::Purchase { action } => self.execute_purchase_command(action).await,
         }
@@ -555,7 +555,7 @@ impl CLIApp {
         Ok(())
     }
 
-    async fn execute_crm_command(
+    async fn handle_crm_command(
         &mut self,
         action: crate::core::command::CrmCommands,
     ) -> CLIERPResult<()> {
@@ -566,7 +566,7 @@ impl CLIApp {
 
         let mut conn = DatabaseManager::establish_connection(&self.config.database.url)?;
 
-        match crate::cli::commands::crm::execute_crm_command(&mut conn, action) {
+        match crate::cli::commands::crm::handle_crm_command(&mut conn, action) {
             Ok(_) => Ok(()),
             Err(e) => {
                 eprintln!("CRM command failed: {}", e);

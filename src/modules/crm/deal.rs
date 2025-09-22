@@ -1,6 +1,9 @@
 use diesel::prelude::*;
 use chrono::{Utc, NaiveDate};
 use crate::core::result::CLIERPResult;
+
+// Type alias for convenience
+type Result<T> = CLIERPResult<T>;
 use crate::database::{
     DatabaseConnection, Deal, NewDeal, DealStage, Lead, Customer, Employee
 };
@@ -23,12 +26,22 @@ impl DealService {
         notes: Option<&str>,
     ) -> Result<Deal> {
         // Validate input
-        let validator = Validator::new();
-        validator
-            .required("title", title)?
-            .min_length("title", title, 2)?
-            .max_length("title", title, 200)?
-            .positive("deal_value", deal_value as f64)?;
+        validate_required_string(title, "title")?;
+        if title.len() < 2 {
+            return Err(crate::core::error::CLIERPError::Validation(
+                "Title must be at least 2 characters long".to_string()
+            ));
+        }
+        if title.len() > 200 {
+            return Err(crate::core::error::CLIERPError::Validation(
+                "Title cannot exceed 200 characters".to_string()
+            ));
+        }
+        if deal_value < 0 {
+            return Err(crate::core::error::CLIERPError::Validation(
+                "Deal value cannot be negative".to_string()
+            ));
+        }
 
         // Verify lead exists
         let lead = leads::table
@@ -44,21 +57,30 @@ impl DealService {
 
         // Create new deal
         let new_deal = NewDeal {
-            lead_id,
-            title: title.to_string(),
+            lead_id: Some(lead_id),
+            deal_name: title.to_string(),
             deal_value,
             stage: DealStage::Qualification.to_string(),
             probability: Self::calculate_probability_for_stage(&DealStage::Qualification),
-            expected_close_date,
+            close_date: expected_close_date,
             assigned_to,
-            description: description.map(|s| s.to_string()),
+            products: None,
+            discount_percent: 0,
+            final_amount: None,
             notes: notes.map(|s| s.to_string()),
         };
 
         diesel::insert_into(deals::table)
             .values(&new_deal)
-            .returning(Deal::as_returning())
-            .get_result(conn)
+            .execute(conn)?;
+
+        // Get the inserted deal by searching for the most recent deal with matching criteria
+        deals::table
+            .filter(deals::dsl::deal_name.eq(&new_deal.deal_name))
+            .filter(deals::dsl::lead_id.eq(new_deal.lead_id))
+            .filter(deals::dsl::deal_value.eq(new_deal.deal_value))
+            .order(deals::dsl::created_at.desc())
+            .first::<Deal>(conn)
             .map_err(Into::into)
     }
 
@@ -110,8 +132,8 @@ impl DealService {
     ) -> Result<PaginatedResult<DealWithDetails>> {
         let mut query = deals::table
             .inner_join(leads::table)
-            .left_join(customers::table.on(customers::id.eq(leads::customer_id.nullable())))
-            .left_join(employees::table.on(employees::id.eq(deals::assigned_to.nullable())))
+            .left_join(customers::table.on(customers::dsl::id.eq(leads::dsl::customer_id.nullable())))
+            .left_join(employees::table.on(employees::dsl::id.eq(deals::dsl::assigned_to.nullable())))
             .select((
                 Deal::as_select(),
                 Lead::as_select(),
@@ -123,66 +145,66 @@ impl DealService {
         // Apply filters
         if let Some(search) = &filters.search {
             query = query.filter(
-                deals::title.like(format!("%{}%", search))
-                    .or(customers::name.like(format!("%{}%", search)))
-                    .or(leads::title.like(format!("%{}%", search)))
+                deals::dsl::deal_name.like(format!("%{}%", search))
+                    .or(customers::dsl::name.like(format!("%{}%", search)))
+                    .or(leads::dsl::title.like(format!("%{}%", search)))
             );
         }
 
         if let Some(status_filter) = &filters.status {
-            query = query.filter(deals::stage.eq(status_filter));
+            query = query.filter(deals::dsl::stage.eq(status_filter));
         }
 
         if let Some(assigned_to) = filters.assigned_to {
-            query = query.filter(deals::assigned_to.eq(assigned_to));
+            query = query.filter(deals::dsl::assigned_to.eq(assigned_to));
         }
 
         if let Some(date_from) = filters.date_from {
-            query = query.filter(deals::expected_close_date.ge(date_from));
+            query = query.filter(deals::dsl::close_date.ge(date_from));
         }
 
         if let Some(date_to) = filters.date_to {
-            query = query.filter(deals::expected_close_date.le(date_to));
+            query = query.filter(deals::dsl::close_date.le(date_to));
         }
 
         // Apply sorting
         query = match filters.sort_by.as_deref() {
             Some("title") => {
                 if filters.sort_desc {
-                    query.order(deals::title.desc())
+                    query.order(deals::dsl::deal_name.desc())
                 } else {
-                    query.order(deals::title.asc())
+                    query.order(deals::dsl::deal_name.asc())
                 }
             }
             Some("stage") => {
                 if filters.sort_desc {
-                    query.order(deals::stage.desc())
+                    query.order(deals::dsl::stage.desc())
                 } else {
-                    query.order(deals::stage.asc())
+                    query.order(deals::dsl::stage.asc())
                 }
             }
             Some("value") => {
                 if filters.sort_desc {
-                    query.order(deals::deal_value.desc())
+                    query.order(deals::dsl::deal_value.desc())
                 } else {
-                    query.order(deals::deal_value.asc())
+                    query.order(deals::dsl::deal_value.asc())
                 }
             }
             Some("close_date") => {
                 if filters.sort_desc {
-                    query.order(deals::expected_close_date.desc())
+                    query.order(deals::dsl::close_date.desc())
                 } else {
-                    query.order(deals::expected_close_date.asc())
+                    query.order(deals::dsl::close_date.asc())
                 }
             }
             Some("created_at") => {
                 if filters.sort_desc {
-                    query.order(deals::created_at.desc())
+                    query.order(deals::dsl::created_at.desc())
                 } else {
-                    query.order(deals::created_at.asc())
+                    query.order(deals::dsl::created_at.asc())
                 }
             }
-            _ => query.order(deals::created_at.desc()),
+            _ => query.order(deals::dsl::created_at.desc()),
         };
 
         let results: Vec<(Deal, Lead, Option<Customer>, Option<String>)> = query
@@ -243,14 +265,17 @@ impl DealService {
 
         diesel::update(deals::table.find(deal_id))
             .set((
-                deals::stage.eq(new_stage.to_string()),
-                deals::probability.eq(new_probability),
-                deals::notes.eq(updated_notes),
-                deals::actual_close_date.eq(actual_close_date),
-                deals::updated_at.eq(Utc::now().naive_utc()),
+                deals::dsl::stage.eq(new_stage.to_string()),
+                deals::dsl::probability.eq(new_probability),
+                deals::dsl::notes.eq(updated_notes),
+                deals::dsl::updated_at.eq(Utc::now().naive_utc()),
             ))
-            .returning(Deal::as_returning())
-            .get_result(conn)
+            .execute(conn)?;
+
+        // Get the updated deal
+        deals::table
+            .find(deal_id)
+            .first::<Deal>(conn)
             .map_err(Into::into)
     }
 
@@ -271,47 +296,64 @@ impl DealService {
             ))?;
 
         // Validate input
-        let validator = Validator::new();
         if let Some(title) = title {
-            validator
-                .required("title", title)?
-                .min_length("title", title, 2)?
-                .max_length("title", title, 200)?;
+            validate_required_string(title, "title")?;
+            if title.len() < 2 {
+                return Err(crate::core::error::CLIERPError::Validation(
+                    "Title must be at least 2 characters long".to_string()
+                ));
+            }
+            if title.len() > 200 {
+                return Err(crate::core::error::CLIERPError::Validation(
+                    "Title cannot exceed 200 characters".to_string()
+                ));
+            }
         }
 
         if let Some(deal_value) = deal_value {
-            validator.positive("deal_value", *deal_value as f64)?;
+            if *deal_value < 0 {
+                return Err(crate::core::error::CLIERPError::Validation(
+                    "Deal value cannot be negative".to_string()
+                ));
+            }
         }
 
-        // Build update query
-        use crate::database::schema::deals::dsl::*;
-        let mut update_query = diesel::update(deals.find(deal_id));
-
+        // Perform individual updates for each provided field
         if let Some(title_val) = title {
-            update_query = update_query.set(title.eq(title_val));
+            diesel::update(deals::table.find(deal_id))
+                .set(deals::dsl::deal_name.eq(title_val))
+                .execute(conn)?;
         }
         if let Some(value_val) = deal_value {
-            update_query = update_query.set(deal_value.eq(*value_val));
+            diesel::update(deals::table.find(deal_id))
+                .set(deals::dsl::deal_value.eq(*value_val))
+                .execute(conn)?;
         }
         if let Some(date_val) = expected_close_date {
-            update_query = update_query.set(expected_close_date.eq(*date_val));
+            diesel::update(deals::table.find(deal_id))
+                .set(deals::dsl::close_date.eq(*date_val))
+                .execute(conn)?;
         }
         if let Some(assigned_val) = assigned_to {
-            update_query = update_query.set(assigned_to.eq(*assigned_val));
-        }
-        if let Some(desc_val) = description {
-            update_query = update_query.set(description.eq(desc_val.map(|s| s.to_string())));
+            diesel::update(deals::table.find(deal_id))
+                .set(deals::dsl::assigned_to.eq(*assigned_val))
+                .execute(conn)?;
         }
         if let Some(notes_val) = notes {
-            update_query = update_query.set(notes.eq(notes_val.map(|s| s.to_string())));
+            diesel::update(deals::table.find(deal_id))
+                .set(deals::dsl::notes.eq(notes_val.map(|s| s.to_string())))
+                .execute(conn)?;
         }
 
         // Always update the updated_at timestamp
-        update_query = update_query.set(updated_at.eq(Utc::now().naive_utc()));
+        diesel::update(deals::table.find(deal_id))
+            .set(deals::dsl::updated_at.eq(Utc::now().naive_utc()))
+            .execute(conn)?;
 
-        update_query
-            .returning(Deal::as_returning())
-            .get_result(conn)
+        // Get the updated deal
+        deals::table
+            .find(deal_id)
+            .first::<Deal>(conn)
             .map_err(Into::into)
     }
 
@@ -328,16 +370,16 @@ impl DealService {
     ) -> Result<Vec<DealWithDetails>> {
         let results: Vec<(Deal, Lead, Option<Customer>, Option<String>)> = deals::table
             .inner_join(leads::table)
-            .left_join(customers::table.on(customers::id.eq(leads::customer_id.nullable())))
-            .left_join(employees::table.on(employees::id.eq(deals::assigned_to.nullable())))
-            .filter(deals::stage.eq(stage.to_string()))
+            .left_join(customers::table.on(customers::dsl::id.eq(leads::dsl::customer_id.nullable())))
+            .left_join(employees::table.on(employees::dsl::id.eq(deals::dsl::assigned_to.nullable())))
+            .filter(deals::dsl::stage.eq(stage.to_string()))
             .select((
                 Deal::as_select(),
                 Lead::as_select(),
                 customers::all_columns.nullable(),
                 employees::name.nullable(),
             ))
-            .order(deals::created_at.desc())
+            .order(deals::dsl::created_at.desc())
             .load(conn)?;
 
         let deals_with_details: Vec<DealWithDetails> = results
@@ -369,13 +411,13 @@ impl DealService {
 
         for stage in stages {
             let count = deals::table
-                .filter(deals::stage.eq(stage.to_string()))
+                .filter(deals::dsl::stage.eq(stage.to_string()))
                 .count()
                 .get_result::<i64>(conn)?;
 
             let total_value: Option<i64> = deals::table
-                .filter(deals::stage.eq(stage.to_string()))
-                .select(diesel::dsl::sum(deals::deal_value))
+                .filter(deals::dsl::stage.eq(stage.to_string()))
+                .select(diesel::dsl::sum(deals::dsl::deal_value))
                 .first(conn)?;
 
             pipeline.push(PipelineStage {
@@ -402,43 +444,43 @@ impl DealService {
         // Active deals (not closed)
         let active_deals = deals::table
             .filter(
-                deals::stage.ne(DealStage::ClosedWon.to_string())
-                    .and(deals::stage.ne(DealStage::ClosedLost.to_string()))
+                deals::dsl::stage.ne(DealStage::ClosedWon.to_string())
+                    .and(deals::dsl::stage.ne(DealStage::ClosedLost.to_string()))
             )
             .count()
             .get_result::<i64>(conn)?;
 
         // Won deals
         let won_deals = deals::table
-            .filter(deals::stage.eq(DealStage::ClosedWon.to_string()))
+            .filter(deals::dsl::stage.eq(DealStage::ClosedWon.to_string()))
             .count()
             .get_result::<i64>(conn)?;
 
         // Lost deals
         let lost_deals = deals::table
-            .filter(deals::stage.eq(DealStage::ClosedLost.to_string()))
+            .filter(deals::dsl::stage.eq(DealStage::ClosedLost.to_string()))
             .count()
             .get_result::<i64>(conn)?;
 
         // Total pipeline value (active deals)
         let total_pipeline_value: Option<i64> = deals::table
             .filter(
-                deals::stage.ne(DealStage::ClosedWon.to_string())
-                    .and(deals::stage.ne(DealStage::ClosedLost.to_string()))
+                deals::dsl::stage.ne(DealStage::ClosedWon.to_string())
+                    .and(deals::dsl::stage.ne(DealStage::ClosedLost.to_string()))
             )
-            .select(diesel::dsl::sum(deals::deal_value))
+            .select(diesel::dsl::sum(deals::dsl::deal_value))
             .first(conn)?;
 
         // Total won value
         let total_won_value: Option<i64> = deals::table
-            .filter(deals::stage.eq(DealStage::ClosedWon.to_string()))
-            .select(diesel::dsl::sum(deals::deal_value))
+            .filter(deals::dsl::stage.eq(DealStage::ClosedWon.to_string()))
+            .select(diesel::dsl::sum(deals::dsl::deal_value))
             .first(conn)?;
 
         // Average deal size
         let average_deal_size = if total_deals > 0 {
             let total_value: Option<i64> = deals::table
-                .select(diesel::dsl::sum(deals::deal_value))
+                .select(diesel::dsl::sum(deals::dsl::deal_value))
                 .first(conn)?;
             total_value.unwrap_or(0) as f64 / total_deals as f64
         } else {

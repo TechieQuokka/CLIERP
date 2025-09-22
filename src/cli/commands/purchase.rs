@@ -247,7 +247,7 @@ fn handle_purchase_order_command(matches: &ArgMatches) -> CLIERPResult<()> {
 }
 
 fn handle_supplier_add(matches: &ArgMatches) -> CLIERPResult<()> {
-    let mut conn = crate::database::establish_connection()?;
+    let mut conn = crate::database::get_connection()?;
 
     let code = matches.get_one::<String>("code").unwrap();
     let name = matches.get_one::<String>("name").unwrap();
@@ -277,7 +277,7 @@ fn handle_supplier_add(matches: &ArgMatches) -> CLIERPResult<()> {
 }
 
 fn handle_supplier_list(matches: &ArgMatches) -> CLIERPResult<()> {
-    let mut conn = crate::database::establish_connection()?;
+    let mut conn = crate::database::get_connection()?;
 
     let search = matches.get_one::<String>("search").map(|s| s.as_str());
     let status = matches.get_one::<String>("status").map(|s| s.as_str());
@@ -319,7 +319,7 @@ fn handle_supplier_list(matches: &ArgMatches) -> CLIERPResult<()> {
 }
 
 fn handle_supplier_show(matches: &ArgMatches) -> CLIERPResult<()> {
-    let mut conn = crate::database::establish_connection()?;
+    let mut conn = crate::database::get_connection()?;
 
     let supplier_id = *matches.get_one::<i32>("supplier_id").unwrap();
 
@@ -350,7 +350,7 @@ fn handle_supplier_show(matches: &ArgMatches) -> CLIERPResult<()> {
 }
 
 fn handle_supplier_update(matches: &ArgMatches) -> CLIERPResult<()> {
-    let mut conn = crate::database::establish_connection()?;
+    let mut conn = crate::database::get_connection()?;
 
     let supplier_id = *matches.get_one::<i32>("supplier_id").unwrap();
     let name = matches.get_one::<String>("name").map(|s| s.as_str());
@@ -387,7 +387,7 @@ fn handle_supplier_update(matches: &ArgMatches) -> CLIERPResult<()> {
 }
 
 fn handle_purchase_create(matches: &ArgMatches) -> CLIERPResult<()> {
-    let mut conn = crate::database::establish_connection()?;
+    let mut conn = crate::database::get_connection()?;
 
     let supplier_id = *matches.get_one::<i32>("supplier_id").unwrap();
     let expected_date = matches.get_one::<String>("expected-date").map(|s| s.parse().unwrap());
@@ -434,7 +434,7 @@ fn handle_purchase_create(matches: &ArgMatches) -> CLIERPResult<()> {
 }
 
 fn handle_purchase_list(matches: &ArgMatches) -> CLIERPResult<()> {
-    let mut conn = crate::database::establish_connection()?;
+    let mut conn = crate::database::get_connection()?;
 
     let search = matches.get_one::<String>("search").map(|s| s.as_str());
     let status = matches.get_one::<String>("status").map(|s| s.as_str());
@@ -480,7 +480,7 @@ fn handle_purchase_list(matches: &ArgMatches) -> CLIERPResult<()> {
 }
 
 fn handle_purchase_show(matches: &ArgMatches) -> CLIERPResult<()> {
-    let mut conn = crate::database::establish_connection()?;
+    let mut conn = crate::database::get_connection()?;
 
     let po_id = *matches.get_one::<i32>("po_id").unwrap();
 
@@ -518,7 +518,7 @@ fn handle_purchase_show(matches: &ArgMatches) -> CLIERPResult<()> {
 }
 
 fn handle_purchase_approve(matches: &ArgMatches) -> CLIERPResult<()> {
-    let mut conn = crate::database::establish_connection()?;
+    let mut conn = crate::database::get_connection()?;
 
     let po_id = *matches.get_one::<i32>("po_id").unwrap();
     let current_user_id = 1; // TODO: Get from session
@@ -533,7 +533,7 @@ fn handle_purchase_approve(matches: &ArgMatches) -> CLIERPResult<()> {
 }
 
 fn handle_purchase_receive(matches: &ArgMatches) -> CLIERPResult<()> {
-    let mut conn = crate::database::establish_connection()?;
+    let mut conn = crate::database::get_connection()?;
 
     let po_id = *matches.get_one::<i32>("po_id").unwrap();
     let items_str = matches.get_one::<String>("items").unwrap();

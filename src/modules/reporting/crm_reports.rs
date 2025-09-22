@@ -14,7 +14,7 @@ impl ReportGenerator for CRMReportsGenerator {
             "campaign_performance" => self.generate_campaign_performance_report(config),
             "sales_activity" => self.generate_sales_activity_report(config),
             "revenue_forecast" => self.generate_revenue_forecast_report(config),
-            _ => Err(crate::core::error::AppError::NotFound(
+            _ => Err(crate::core::error::CLIERPError::NotFound(
                 format!("CRM report '{}' not found", config.title)
             )),
         }
@@ -776,7 +776,7 @@ impl CRMReportsGenerator {
                         "30".to_string(),
                     ]),
                 }),
-            ),
+            },
             ReportSection {
                 title: "Activity Trends".to_string(),
                 section_type: SectionType::Chart,
@@ -802,7 +802,7 @@ impl CRMReportsGenerator {
                             label: "Emails".to_string(),
                             data: vec![645.0, 720.0, 678.0, 847.0],
                             color: Some("#F59E0B".to_string()),
-                        ],
+                        },
                     ],
                 )),
             },
@@ -942,7 +942,7 @@ impl CRMReportsGenerator {
                             label: "Conservative".to_string(),
                             data: vec![0.0, 0.0, 0.0, 0.0, 0.0, 925.0, 1050.0, 1080.0],
                             color: Some("#F59E0B".to_string()),
-                        ],
+                        },
                     ],
                 )),
             },

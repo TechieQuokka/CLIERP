@@ -17,7 +17,7 @@ impl ReportGenerator for HRReportsGenerator {
             "attendance_report" => self.generate_attendance_report(config),
             "payroll_report" => self.generate_payroll_report(config),
             "hr_analytics" => self.generate_hr_analytics_report(config),
-            _ => Err(crate::core::error::AppError::NotFound(
+            _ => Err(crate::core::error::CLIERPError::NotFound(
                 format!("HR report '{}' not found", config.title)
             )),
         }

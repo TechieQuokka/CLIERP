@@ -13,7 +13,7 @@ impl ReportGenerator for FinanceReportsGenerator {
             "cash_flow" => self.generate_cash_flow_statement(config),
             "budget_vs_actual" => self.generate_budget_vs_actual_report(config),
             "financial_analytics" => self.generate_financial_analytics(config),
-            _ => Err(crate::core::error::AppError::NotFound(
+            _ => Err(crate::core::error::CLIERPError::NotFound(
                 format!("Finance report '{}' not found", config.title)
             )),
         }
@@ -545,7 +545,7 @@ impl FinanceReportsGenerator {
                         "+1.2%".to_string(),
                     ]),
                 }),
-            ),
+            },
             ReportSection {
                 title: "Budget Performance Chart".to_string(),
                 section_type: SectionType::Chart,
